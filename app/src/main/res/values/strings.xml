@@ -1,8 +1,12 @@
 <resources>
     <string name="app_name">Compass Navigate</string>
-    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_button">Full Screen</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
     <string name="distance_text">Distance</string>
     <string name="angle_text">Angle</string>
     <string name="start_button">Start Navigation</string>
+    <string name="proximity_text">Click notification to return to app</string>
+    <string name="channel_name">Geofence Notification</string>
+    <string name="channel_description">Notice entering or exiting</string>
+    <string name="channel_id">A</string>
 </resources>

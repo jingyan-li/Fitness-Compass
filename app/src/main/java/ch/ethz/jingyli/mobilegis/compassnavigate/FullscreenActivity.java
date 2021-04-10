@@ -8,12 +8,17 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -23,6 +28,7 @@ import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.ArrayAdapter;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,8 +39,10 @@ import java.util.Map;
 import java.util.Scanner;
 
 /**
- * An example full-screen activity that shows and hides the system UI (i.e.
- * status bar and navigation/system bar) with user interaction.
+ * This activity....
+ * @author Jingyan Li
+ * @subject Mobile GIS and LBS --Assignment 1
+ * @reference
  */
 public class FullscreenActivity extends AppCompatActivity implements LocationListener {
     /**
@@ -124,6 +132,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private Map<String, Geofence> checkpoints;  //Map<Geofence name, Geofence object>
     private Geofence currentCheckpoint;
     private final double GEOFENCE_RADIUS = 50.0;
+    private boolean returnTrip = false;
 
     /**
      * Set up some widgets
@@ -131,19 +140,22 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private Spinner checkPointSpinner;
     private TextView distanceTxtView;
     private TextView angleTxtView;
+    private TextView approachingTxtView;
     private Button startBtn;
 
     /**
      * Set up broadcast receiver
      */
-    private BroadcastReceiver localBroadcastReceiver;
+    private BroadcastReceiver localProximityBroadcastReceiver;
+    private BroadcastReceiver localLocationChangedBroadcastReceiver;
     private BroadcastReceiver proximityIntentReceiver;
 
     /**
-     * Define intent string
+     * Define intent action string
      */
     private static final String PROX_ALERT_INTENT =
-            "mobgis.ikg.ethz.ch.locationproject.PROXIMITY_ALERT";
+            "ch.ethz.jingyli.mobilegis.compassnavigate.PROXIMITY_ALERT";
+    private static final String ON_LOCATION_CHANGED_INTENT = "ch.ethz.jingyli.mobilegis.compassnavigate.ONLOCATIONCHANGED_ALERT";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -172,6 +184,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         checkPointSpinner = (Spinner) findViewById(R.id.checkpoint_spinner);
         distanceTxtView = (TextView) findViewById(R.id.distance);
         angleTxtView = (TextView) findViewById(R.id.angle);
+        approachingTxtView = (TextView) findViewById(R.id.textLog);
         startBtn = (Button) findViewById(R.id.start_button);
 
         // Initiate variables
@@ -185,8 +198,37 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         // Check location permission
         checkPermissions();
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        // TODO: Add broadcast receiver for proximity / location changed intents
-        
+
+        // Add broadcast receivers for proximity / location changed intents
+        localProximityBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String name = intent.getStringExtra("name");
+                boolean entering = intent.getBooleanExtra(LocationManager.KEY_PROXIMITY_ENTERING, false);
+
+                if (entering) {
+                    approachingTxtView.setText(approachingTxtView.getText() + "\n" + "Entering " + name);
+                } else {
+                    approachingTxtView.setText(approachingTxtView.getText() + "\n" + "Leaving " + name);
+                }
+            }
+        };
+        localLocationChangedBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String name = intent.getStringExtra("name");
+                double distance = intent.getDoubleExtra("distance",0);
+                double speed = intent.getDoubleExtra("speed",0);
+                double angle = intent.getDoubleExtra("angle",0);
+                double temperature = intent.getDoubleExtra("temperature",0);
+
+                distanceTxtView.setText(String.format("Distance: %.4f m", distance));
+                angleTxtView.setText(String.format("Angle: %.4f deg", angle));
+
+            }
+        };
+        proximityIntentReceiver = new ProximityIntentReceiver();
+
         // Navigation button
         startBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -196,10 +238,35 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 Log.d("Navigation button","Selected checkpoint: "+selectedCheckpoint);
                 // add proximity alert
                 addProximityAlert(selectedCheckpoint);
-                //TODO: mark down current location
+                //TODO: mark down current location & current time
+
+                //TODO: Initiate total distance
 
             }
         });
+    }
+
+    @Override
+    protected void onStart() {
+        checkPermissions();
+        createNotificationChannel();
+        registerReceiver(localProximityBroadcastReceiver, new IntentFilter(PROX_ALERT_INTENT));
+        registerReceiver(localLocationChangedBroadcastReceiver, new IntentFilter(ON_LOCATION_CHANGED_INTENT));
+        registerReceiver(proximityIntentReceiver, new IntentFilter(PROX_ALERT_INTENT));
+        super.onStart();
+    }
+
+    @Override
+    protected void onStop() {
+        checkpoints = new HashMap<>();
+        lastDistToCenter = new HashMap<>();
+        currentCheckpoint = null;
+
+        locationManager.removeUpdates(this);
+        unregisterReceiver(localProximityBroadcastReceiver);
+        unregisterReceiver(localLocationChangedBroadcastReceiver);
+        unregisterReceiver(proximityIntentReceiver);
+        super.onStop();
     }
 
     /**
@@ -260,6 +327,43 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         }
     }
 
+    @Override
+    public boolean shouldShowRequestPermissionRationale(@NonNull String permission) {
+        return super.shouldShowRequestPermissionRationale(permission);
+    }
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode,
+            String permissions[],
+            int[] grantResults) {
+        switch (requestCode) {
+            case 1:
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(FullscreenActivity.this, "Permission Granted!", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(FullscreenActivity.this, "Permission Denied!", Toast.LENGTH_SHORT).show();
+                }
+        }
+    }
+
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = getString(R.string.channel_name);
+            String description = getString(R.string.channel_description);
+            String CHANNEL_ID = getString(R.string.channel_id);
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            channel.setDescription(description);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
     /**
      * Adds a proximity alert, either by using the LocationManager, or our own implementation
      * (depending if we're running on the emulator or not). Geofences need to be removed
@@ -271,8 +375,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         try {
             currentCheckpoint = checkpoints.get(name);
             lastDistToCenter.put(name, Double.MAX_VALUE);
-            // TODO Put the code to start the location updates here.
-            // TODO ...
+            // start the location updates.
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 5, this);
         } catch (SecurityException e) {
             Log.d("ERROR", e.getMessage());
@@ -291,13 +394,10 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         Intent i = new Intent(PROX_ALERT_INTENT);
         i.putExtra("name", name);
         i.putExtra(LocationManager.KEY_PROXIMITY_ENTERING, entering);
-        // TODO Send the intent as a broadcast here. Every BroadcastReceiver, which is registered
-        // TODO to listen to PROX_ALERT_INTENT will receive this intent!
-        // TODO For example, ProximityIntentReceiver is registered in the Manifest, and the
-        // TODO localBroadcastReceiver of MainActivity in onResume(...).
-        // TODO ...
-        // TODO send ...
-
+        // Send the intent as a broadcast here. Every BroadcastReceiver, which is registered
+        // to listen to PROX_ALERT_INTENT will receive this intent!
+        // For example, ProximityIntentReceiver is registered in the Manifest, and the
+        // localBroadcastReceiver of MainActivity in onResume(...).
         this.sendBroadcast(i);
     }
 
@@ -306,9 +406,19 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
      * @param name  Geofence name
      * @param distance Distance from current location to the selected checkpoint
      * @param angle Angle from current location to the selected checkpoint
+     * @param speed Current speed
+     * @param temperature Current temperature
      */
-    private void sendLocationChangedIntent(String name, double distance, double angle){
-        // TODO: sendLocationChangedIntent
+    private void sendLocationChangedIntent(String name, double distance, double angle, double speed, double temperature){
+        // Create intent storing all information to be updated
+        Intent i = new Intent(ON_LOCATION_CHANGED_INTENT);
+        i.putExtra("name", name);
+        i.putExtra("distance", distance);
+        i.putExtra("angle", angle);
+        i.putExtra("speed", speed);
+        i.putExtra("temperature", temperature);
+        // send broadcast
+        this.sendBroadcast(i);
     }
 
     /**
@@ -317,11 +427,13 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
      */
     @Override
     public void onLocationChanged(@NonNull Location location) {
-        // Compute the distance
-        double distance = 0.0;
-        distance = currentCheckpoint.getLocation().distanceTo(location);
-        // Get angle
-
+        // Compute the distance to the checkpoint
+        double distance = currentCheckpoint.getLocation().distanceTo(location);
+        // Get angle: Degree of east to the north
+        double angle = location.bearingTo(currentCheckpoint.getLocation());
+        // TODO: Temperature, speed sensor
+        double temperature = 0.;
+        double speed = 0.;
         // In case the new distance is smaller than the radius of the fence, and
         // the old one is bigger, we are entering the geofence.
         double geofenceRadius = currentCheckpoint.getRadius();
@@ -332,6 +444,8 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
             // In the opposite case, we must be leaving the geofence.
             sendProximityIntent(geofenceName, false);
         }
+        // Send current distance, angle, speed, temperature as an intent
+        sendLocationChangedIntent(geofenceName, distance, angle, speed, temperature);
         lastDistToCenter.put(geofenceName, distance);
     }
 
