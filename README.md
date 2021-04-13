@@ -1,5 +1,5 @@
-# MobileGIS_LBS_asn1
-Compass app in Android
+# Compass app in Android
+Mobile GIS & LBS asn1
 
 ## Description
 
