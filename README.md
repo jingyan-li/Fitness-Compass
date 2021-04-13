@@ -19,3 +19,11 @@ running or walking near their home.
 
 
 ## UI
+
+
+
+## Requirements
+Android API 29
+Android sdk
+Java
+
