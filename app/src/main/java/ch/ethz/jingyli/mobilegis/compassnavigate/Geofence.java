@@ -4,9 +4,8 @@ import android.location.Location;
 
 /**
  * Geofence: name, lat, lon, radius
- * ref: lab material
+ * Ref: lab material
  */
-
 
 public class Geofence {
     private double latitude;
@@ -27,6 +26,13 @@ public class Geofence {
         this.name = name;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.radius = radius;
+    }
+
+    public Geofence(String name, Location location, double radius){
+        this.name = name;
+        this.latitude = location.getLatitude();
+        this.longitude = location.getLongitude();
         this.radius = radius;
     }
 

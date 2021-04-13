@@ -4,9 +4,16 @@
     <string name="dummy_content">DUMMY\nCONTENT</string>
     <string name="distance_text">Distance</string>
     <string name="angle_text">Angle</string>
+    <string name="temperature_text">Temperature</string>
+    <string name="speed_text">Current Speed</string>
     <string name="start_button">Start Navigation</string>
     <string name="proximity_text">Click notification to return to app</string>
     <string name="channel_name">Geofence Notification</string>
     <string name="channel_description">Notice entering or exiting</string>
     <string name="channel_id">A</string>
+
+    <string name="trip_stage_find_checkpoint">Finding checkpoint</string>
+    <string name="trip_stage_arrive_checkpoint">Congratulations! You arrived the checkpoint!</string>
+    <string name="trip_stage_find_startpoint">Going back to the start point</string>
+    <string name="trip_stage_arrive_startpoint">Congratulations! You finished the trip!</string>
 </resources>

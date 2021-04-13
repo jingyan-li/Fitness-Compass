@@ -15,11 +15,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -30,10 +35,14 @@ import android.widget.TextView;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -44,7 +53,7 @@ import java.util.Scanner;
  * @subject Mobile GIS and LBS --Assignment 1
  * @reference
  */
-public class FullscreenActivity extends AppCompatActivity implements LocationListener {
+public class FullscreenActivity extends AppCompatActivity implements LocationListener, SensorEventListener {
     /**
      * Whether or not the system UI should be auto-hidden after
      * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
@@ -128,11 +137,17 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
      * Set up some variables
      */
     private LocationManager locationManager;
+    private SensorManager sensorManager;
     private Map<String, Double> lastDistToCenter;
     private Map<String, Geofence> checkpoints;  //Map<Geofence name, Geofence object>
     private Geofence currentCheckpoint;
-    private final double GEOFENCE_RADIUS = 50.0;
-    private boolean returnTrip = false;
+    private final double GEOFENCE_RADIUS = 50.0; //unit: meter
+    private final double ARRIVE_THRESHOLD = 2.0; //unit: meter
+
+    private Trip currentTrip;
+    private float currentTemperature = -100;
+
+    private final String REWARD_FILE_PATH="user_records.csv";
 
     /**
      * Set up some widgets
@@ -141,7 +156,10 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private TextView distanceTxtView;
     private TextView angleTxtView;
     private TextView approachingTxtView;
+    private TextView temperatureTxtView;
+    private TextView speedTxtView;
     private Button startBtn;
+    private Button cancelBtn;
 
     /**
      * Set up broadcast receiver
@@ -185,12 +203,16 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         distanceTxtView = (TextView) findViewById(R.id.distance);
         angleTxtView = (TextView) findViewById(R.id.angle);
         approachingTxtView = (TextView) findViewById(R.id.textLog);
+        temperatureTxtView = (TextView) findViewById(R.id.temperature);
+        speedTxtView = (TextView) findViewById(R.id.speed);
         startBtn = (Button) findViewById(R.id.start_button);
+        cancelBtn = (Button) findViewById(R.id.cancel_button);
 
         // Initiate variables
         lastDistToCenter = new HashMap<>();
         checkpoints = new HashMap<>();
         readCheckPoints();
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 
         // Set up spinner
         setUpSpinner();
@@ -198,6 +220,9 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         // Check location permission
         checkPermissions();
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+
+        // External storage write permission
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
 
         // Add broadcast receivers for proximity / location changed intents
         localProximityBroadcastReceiver = new BroadcastReceiver() {
@@ -221,10 +246,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 double speed = intent.getDoubleExtra("speed",0);
                 double angle = intent.getDoubleExtra("angle",0);
                 double temperature = intent.getDoubleExtra("temperature",0);
-
-                distanceTxtView.setText(String.format("Distance: %.4f m", distance));
-                angleTxtView.setText(String.format("Angle: %.4f deg", angle));
-
+                updateUI(distance,angle,temperature,speed);
             }
         };
         proximityIntentReceiver = new ProximityIntentReceiver();
@@ -238,9 +260,17 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 Log.d("Navigation button","Selected checkpoint: "+selectedCheckpoint);
                 // add proximity alert
                 addProximityAlert(selectedCheckpoint);
-                //TODO: mark down current location & current time
+            }
+        });
 
-                //TODO: Initiate total distance
+        cancelBtn.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                if(currentTrip!=null){
+                    finishTrip(false);
+                }else{
+                    removeProximityAlert();
+                }
 
             }
         });
@@ -250,25 +280,54 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     protected void onStart() {
         checkPermissions();
         createNotificationChannel();
+        // location manager is supposed to be re-registered here, to test if the UI can be updated in the background, I just make them into comments.
+//        if (currentCheckpoint!=null){
+//            addProximityAlert(currentCheckpoint.getName());
+//        }
         registerReceiver(localProximityBroadcastReceiver, new IntentFilter(PROX_ALERT_INTENT));
         registerReceiver(localLocationChangedBroadcastReceiver, new IntentFilter(ON_LOCATION_CHANGED_INTENT));
         registerReceiver(proximityIntentReceiver, new IntentFilter(PROX_ALERT_INTENT));
+        loadAmbientTemperature();
         super.onStart();
+        Log.d("App","Start");
     }
 
     @Override
     protected void onStop() {
-        checkpoints = new HashMap<>();
-        lastDistToCenter = new HashMap<>();
-        currentCheckpoint = null;
+        // These objects are supposed to be unregistered here. But to test if the UI can be updated in the background, I just make them into comments.
+//        checkpoints = new HashMap<>();
+//        lastDistToCenter = new HashMap<>();
+//        currentCheckpoint = null;
 
-        locationManager.removeUpdates(this);
+//        locationManager.removeUpdates(this);
+//        sensorManager.unregisterListener(this);
         unregisterReceiver(localProximityBroadcastReceiver);
         unregisterReceiver(localLocationChangedBroadcastReceiver);
         unregisterReceiver(proximityIntentReceiver);
+        Log.d("App","Stop");
         super.onStop();
     }
+    @Override
+    protected void onPause(){
+        Log.d("App","Pause");
+        super.onPause();
+    }
+    @Override
+    protected void onResume(){
+        Log.d("App","Resume");
+        super.onResume();
+    }
+    @Override
+    protected void onDestroy(){
+        Log.d("App","Destroy");
+        super.onDestroy();
+    }
+    @Override
+    public void onBackPressed(){
+        // Move the activity to background
+        moveTaskToBack(false);
 
+    }
     /**
      * readCheckPoints
      * Read check points from res/raw/checkpoints.csv and store the check points in the hashmap as Geofence object
@@ -331,6 +390,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     public boolean shouldShowRequestPermissionRationale(@NonNull String permission) {
         return super.shouldShowRequestPermissionRationale(permission);
     }
+
     @Override
     public void onRequestPermissionsResult(
             int requestCode,
@@ -342,7 +402,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(FullscreenActivity.this, "Permission Granted!", Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(FullscreenActivity.this, "Permission Denied!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FullscreenActivity.this, "Permission Denied! Please go to Settings to accept permission!", Toast.LENGTH_SHORT).show();
                 }
         }
     }
@@ -364,20 +424,56 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         }
     }
 
+    private void loadAmbientTemperature() {
+        // Load ambient temperature sensor
+        Sensor sensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
+
+        if (sensor != null) {
+            sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_FASTEST);
+            Log.d("Ambient Temperature","Sensor registered");
+        } else {
+            Toast.makeText(this, "The device does not support temperature sensor !", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.values.length > 0) {
+            currentTemperature = event.values[0];
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+
     /**
-     * Adds a proximity alert, either by using the LocationManager, or our own implementation
-     * (depending if we're running on the emulator or not). Geofences need to be removed
-     * "by hand", i.e., they don't have a timeout.
-     *
-     * @param name   The name of this Geofence.
+     * Adds a proximity alert, when users' location changes, UI updates distance, angle, temperature and speed
+     * @param name   The name of the check point.
      */
     private void addProximityAlert(String name) {
         try {
             currentCheckpoint = checkpoints.get(name);
-            lastDistToCenter.put(name, Double.MAX_VALUE);
+//            lastDistToCenter.put(name, Double.MAX_VALUE);
+            // Initiate trip instance
+            currentTrip = new Trip(currentCheckpoint.getLocation());
             // start the location updates.
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 5, this);
         } catch (SecurityException e) {
+            Log.d("ERROR", e.getMessage());
+        }
+    }
+
+    /**
+     * Remove the proximity alert after the trip is finished or user cancels the trip
+     */
+    private void removeProximityAlert(){
+        try{
+            currentCheckpoint = null;
+            currentTrip = null;
+            locationManager.removeUpdates(this);
+        }catch (SecurityException e) {
             Log.d("ERROR", e.getMessage());
         }
     }
@@ -423,33 +519,175 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
 
     /**
      * LocationManager method
-     * @param location
+     * @param location current location of user
      */
     @Override
     public void onLocationChanged(@NonNull Location location) {
-        // Compute the distance to the checkpoint
-        double distance = currentCheckpoint.getLocation().distanceTo(location);
-        // Get angle: Degree of east to the north
-        double angle = location.bearingTo(currentCheckpoint.getLocation());
-        // TODO: Temperature, speed sensor
-        double temperature = 0.;
-        double speed = 0.;
-        // In case the new distance is smaller than the radius of the fence, and
-        // the old one is bigger, we are entering the geofence.
-        double geofenceRadius = currentCheckpoint.getRadius();
-        String geofenceName = currentCheckpoint.getName();
-        if (distance < geofenceRadius && lastDistToCenter.get(geofenceName) > geofenceRadius) {
-            sendProximityIntent(geofenceName, true);
-        } else if (distance > geofenceRadius && lastDistToCenter.get(geofenceName) < geofenceRadius) {
-            // In the opposite case, we must be leaving the geofence.
-            sendProximityIntent(geofenceName, false);
+        // Test whether the current trip started or not
+        if(!currentTrip.testStarted()){
+            currentTrip.startTrip(location, getCurrentTime());
         }
-        // Send current distance, angle, speed, temperature as an intent
-        sendLocationChangedIntent(geofenceName, distance, angle, speed, temperature);
-        lastDistToCenter.put(geofenceName, distance);
+        else{
+            currentTrip.addIntermediatePoint(location, getCurrentTime(), currentTemperature);
+        }
+
+        // Compute the distance to the checkpoint
+        double distance = 0.;
+        // Get angle: Degree of east to the north
+        double angle = 0.;
+        // Temperature, speed sensor
+        double temperature = currentTemperature;
+        double speed = currentTrip.getCurrentSpeed();
+
+        // Check whether user arrived the destination
+        int trip_stage = currentTrip.testStage(location, ARRIVE_THRESHOLD);
+        switch (trip_stage){
+            case R.string.trip_stage_arrive_checkpoint:
+                Toast.makeText(this, String.format("You arrived the checkpoint %s\nNow going back...", currentCheckpoint.getName()),Toast.LENGTH_LONG).show();
+                distance = currentTrip.currentDistanceToCheck();
+                angle = currentTrip.currentAngleToCheck();
+                currentCheckpoint = new Geofence("Startpoint",currentTrip.getStartPoint(), GEOFENCE_RADIUS);
+                break;
+            case R.string.trip_stage_find_checkpoint:
+                distance = currentTrip.currentDistanceToCheck();
+                angle = currentTrip.currentAngleToCheck();
+                break;
+            case R.string.trip_stage_find_startpoint:
+                distance = currentTrip.currentDistanceToStart();
+                angle = currentTrip.currentAngleToStart();
+                break;
+            case R.string.trip_stage_arrive_startpoint:
+                distance = currentTrip.currentDistanceToStart();
+                angle = currentTrip.currentAngleToStart();
+                // User return to start point, finish the trip
+                finishTrip(true);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + trip_stage);
+        }
+        // Update UI
+        updateUI(distance, angle, temperature, speed);
+
+
+//        // In case the new distance is smaller than the radius of the fence, and
+//        // the old one is bigger, we are entering the geofence.
+//        double geofenceRadius = currentCheckpoint.getRadius();
+//        String geofenceName = currentCheckpoint.getName();
+//        if (distance < geofenceRadius && lastDistToCenter.get(geofenceName) > geofenceRadius) {
+//            sendProximityIntent(geofenceName, true);
+//        } else if (distance > geofenceRadius && lastDistToCenter.get(geofenceName) < geofenceRadius) {
+//            // In the opposite case, we must be leaving the geofence.
+//            sendProximityIntent(geofenceName, false);
+//        }
+//        // Send current distance, angle, speed, temperature as an intent; This cannot support background running. So I just make it into comments.
+////        sendLocationChangedIntent(geofenceName, distance, angle, speed, temperature);
+//
+//        lastDistToCenter.put(geofenceName, distance);
+    }
+
+    private void updateUI(double distance, double angle, double temperature, double speed){
+        //TODO: UI for compass
+        distanceTxtView.setText(String.format("Distance: %.4f m", distance));
+        angleTxtView.setText(String.format("Angle: %.4f deg", angle));
+        temperatureTxtView.setText(String.format("Temperature: %.2f degree", temperature));
+        speedTxtView.setText(String.format("Current speed: %.3f m/s", speed));
+    }
+
+    private void finishTrip(boolean arrived){
+        String text = getString(R.string.trip_stage_arrive_startpoint);
+        Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+
+        double totalDistance = currentTrip.getTotalDistance();
+        double totalDuration = currentTrip.getTotalDuration();
+        double avg_speed = currentTrip.getAverageSpeed();
+        double avg_temperature = currentTrip.getAverageTemparture();
+        //TODO: UI updates when trip finished -> release total distance, duration...
+        approachingTxtView.setText(String.format(
+                "Distant:%.2f meters\nDuration:%.2f seconds",
+                currentTrip.getTotalDistance(),
+                currentTrip.getTotalDuration()));
+        if(arrived){
+            String reward = checkRewards(avg_speed, totalDistance, avg_temperature);
+            String line = String.format("%d,%.5f,%.5f,%.5f,%.5f,%.2f,%.1f,%.2f,%.2f,%s",
+                    currentTrip.getStartTime(), //timestamp miliseconds
+                    currentTrip.getStartPoint().getLongitude(),
+                    currentTrip.getStartPoint().getLatitude(),
+                    currentTrip.getCheckPoint().getLongitude(),
+                    currentTrip.getCheckPoint().getLatitude(),
+                    totalDistance, //meter
+                    totalDuration, //seconds
+                    avg_speed, //km/h
+                    avg_temperature,
+                    reward);
+            writeToCSV(line, REWARD_FILE_PATH);
+        }
+        removeProximityAlert();
     }
 
 
+    // ===================== util functions ====================
+    /**
+     * Get current time
+     * @return current time in milliseconds
+     */
+    private long getCurrentTime(){
+        //creating Calendar instance
+        Calendar calendar = Calendar.getInstance();
+        //Returns current time in millis
+        long timeMilli2 = calendar.getTimeInMillis();
+        return timeMilli2;
+    }
+
+    /**
+     * Write the record to CSV in the SD card
+     * @param line write lines
+     * @param path file name
+     */
+    private void writeToCSV(String line, String path){
+        if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
+            try{
+                File file = new File (getExternalFilesDir(null), path);
+                FileOutputStream outputStream = new FileOutputStream(file, true);
+                PrintWriter writer = new PrintWriter(outputStream);
+
+                writer.println(line);
+                writer.close();
+                outputStream.close();
+                Log.d("FileLog", "File Saved :  " + file.getPath());
+            }catch(IOException e){
+                Log.e("FileLog", "File to write file");
+            }
+        }else{
+            Log.e("FileLog", "SD card not mounted");
+        }
+    }
+
+    /**
+     * Check which rewards the trip gets
+     * @param avg_speed: average speed (km/h)
+     * @param distance: distance (m)
+     * @param avg_temp: average temperature (degree)
+     * @return reward string
+     */
+    private String checkRewards(double avg_speed, double distance, double avg_temp){
+        if(avg_speed>=4 && avg_speed<6 && distance<=1000 && avg_temp<20 && avg_speed>4){
+            return "Peach";
+        }
+        if(avg_speed>=4 && avg_speed<6 && distance>1000 && avg_temp>=20){
+            return "Watermelon";
+        }
+        if(avg_speed>=6 && avg_speed<8 && distance>0 && avg_temp>=20){
+            return "Ice Cream";
+        }
+        if(avg_speed>=8 && distance>1 && avg_temp>4000 && avg_temp<20){
+            return "Banana";
+        }
+        else {
+            return "Apple";
+        }
+    }
+
+    //======================== UI functions ==================================
 
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
@@ -502,4 +740,6 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         mHideHandler.removeCallbacks(mHideRunnable);
         mHideHandler.postDelayed(mHideRunnable, delayMillis);
     }
+
+
 }

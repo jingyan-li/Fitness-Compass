@@ -18,6 +18,8 @@ import androidx.core.app.NotificationCompat;
  *
  * This is of course useful if our app is not started, or running in the back, and shows how we
  * can access location outside of a running Activity.
+ *
+ * Ref: lab material
  */
 public class ProximityIntentReceiver extends BroadcastReceiver {
 
