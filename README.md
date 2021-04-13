@@ -23,7 +23,10 @@ running or walking near their home.
 
 
 ## Requirements
+
 Android API 29
+
 Android sdk
+
 Java
 
