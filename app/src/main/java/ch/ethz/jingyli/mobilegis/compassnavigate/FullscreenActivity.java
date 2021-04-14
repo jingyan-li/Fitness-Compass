@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -29,11 +30,16 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
+
+import com.github.capur16.digitspeedviewlib.DigitSpeedView;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -141,11 +147,14 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private Map<String, Double> lastDistToCenter;
     private Map<String, Geofence> checkpoints;  //Map<Geofence name, Geofence object>
     private Geofence currentCheckpoint;
-    private final double GEOFENCE_RADIUS = 50.0; //unit: meter
-    private final double ARRIVE_THRESHOLD = 2.0; //unit: meter
+    private final double GEOFENCE_RADIUS = 10.0; //unit: meter
+    private final double ARRIVE_THRESHOLD = 4.0; //unit: meter
 
     private Trip currentTrip;
     private float currentTemperature = -100;
+    private float currentAzimuthRotation = 0;
+    private boolean inTrip=false;
+    private float currentAngle = 0;
 
     private final String REWARD_FILE_PATH="user_records.csv";
 
@@ -153,13 +162,19 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
      * Set up some widgets
      */
     private Spinner checkPointSpinner;
-    private TextView distanceTxtView;
-    private TextView angleTxtView;
-    private TextView approachingTxtView;
-    private TextView temperatureTxtView;
-    private TextView speedTxtView;
     private Button startBtn;
     private Button cancelBtn;
+    private TextView checkpointText;
+    // compass
+    private ImageView image;
+    private TextView compassAngle;
+    private float currentDegree = .0f;
+    // speed
+    private DigitSpeedView digitSpeedView;
+    // temperature
+    private DigitSpeedView digitTempView;
+    // distance
+    private DigitSpeedView digitDistanceView;
 
     /**
      * Set up broadcast receiver
@@ -200,13 +215,14 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
 
         // Initiate widgets
         checkPointSpinner = (Spinner) findViewById(R.id.checkpoint_spinner);
-        distanceTxtView = (TextView) findViewById(R.id.distance);
-        angleTxtView = (TextView) findViewById(R.id.angle);
-        approachingTxtView = (TextView) findViewById(R.id.textLog);
-        temperatureTxtView = (TextView) findViewById(R.id.temperature);
-        speedTxtView = (TextView) findViewById(R.id.speed);
         startBtn = (Button) findViewById(R.id.start_button);
         cancelBtn = (Button) findViewById(R.id.cancel_button);
+        image = (ImageView)findViewById(R.id.imageViewCompass);
+        compassAngle = (TextView)findViewById(R.id.compass_angle);
+        digitSpeedView = (DigitSpeedView)findViewById(R.id.digit_speed_view);
+        digitDistanceView = (DigitSpeedView)findViewById(R.id.digit_distance_view);
+        digitTempView = (DigitSpeedView)findViewById(R.id.digit_temperature_view);
+        checkpointText = (TextView)findViewById(R.id.checkpoint_selection_text);
 
         // Initiate variables
         lastDistToCenter = new HashMap<>();
@@ -230,11 +246,10 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
             public void onReceive(Context context, Intent intent) {
                 String name = intent.getStringExtra("name");
                 boolean entering = intent.getBooleanExtra(LocationManager.KEY_PROXIMITY_ENTERING, false);
-
-                if (entering) {
-                    approachingTxtView.setText(approachingTxtView.getText() + "\n" + "Entering " + name);
-                } else {
-                    approachingTxtView.setText(approachingTxtView.getText() + "\n" + "Leaving " + name);
+                if (entering){
+                    Toast.makeText(context, "You almost arrive at "+name, Toast.LENGTH_LONG).show();
+                }else{
+                    Toast.makeText(context, "You are leaving "+name, Toast.LENGTH_LONG).show();
                 }
             }
         };
@@ -246,7 +261,9 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 double speed = intent.getDoubleExtra("speed",0);
                 double angle = intent.getDoubleExtra("angle",0);
                 double temperature = intent.getDoubleExtra("temperature",0);
-                updateUI(distance,angle,temperature,speed);
+                updateDistSpeedUI(distance,speed);
+                updateTemperatureUI((float)temperature);
+                compassAnimate((float) angle,currentAzimuthRotation);
             }
         };
         proximityIntentReceiver = new ProximityIntentReceiver();
@@ -258,14 +275,17 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 // get selected check point from spinner
                 String selectedCheckpoint = checkPointSpinner.getSelectedItem().toString();
                 Log.d("Navigation button","Selected checkpoint: "+selectedCheckpoint);
+                checkpointText.setText(getString(R.string.checkpoint_headto));
                 // add proximity alert
                 addProximityAlert(selectedCheckpoint);
+                inTrip=true;
             }
         });
 
         cancelBtn.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
+                inTrip=false;
                 if(currentTrip!=null){
                     finishTrip(false);
                 }else{
@@ -288,6 +308,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         registerReceiver(localLocationChangedBroadcastReceiver, new IntentFilter(ON_LOCATION_CHANGED_INTENT));
         registerReceiver(proximityIntentReceiver, new IntentFilter(PROX_ALERT_INTENT));
         loadAmbientTemperature();
+        loadOrientation();
         super.onStart();
         Log.d("App","Start");
     }
@@ -295,10 +316,6 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     @Override
     protected void onStop() {
         // These objects are supposed to be unregistered here. But to test if the UI can be updated in the background, I just make them into comments.
-//        checkpoints = new HashMap<>();
-//        lastDistToCenter = new HashMap<>();
-//        currentCheckpoint = null;
-
 //        locationManager.removeUpdates(this);
 //        sensorManager.unregisterListener(this);
         unregisterReceiver(localProximityBroadcastReceiver);
@@ -375,14 +392,20 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
      * We use this function to check for permissions, and pop up a box asking for them,
      * in case a user hasn't given them yet.
      */
+    @RequiresApi(api = Build.VERSION_CODES.Q)
     private void checkPermissions() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
                 PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
                             Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+        }
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, 1);
         }
     }
 
@@ -402,7 +425,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(FullscreenActivity.this, "Permission Granted!", Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(FullscreenActivity.this, "Permission Denied! Please go to Settings to accept permission!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(FullscreenActivity.this, "Permission Denied! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
                 }
         }
     }
@@ -424,6 +447,11 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         }
     }
 
+    /**
+     * Add temperature listener
+     * Toast if it does not exist
+     * Temperature will then recorded as -100
+     */
     private void loadAmbientTemperature() {
         // Load ambient temperature sensor
         Sensor sensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
@@ -432,14 +460,65 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
             sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_FASTEST);
             Log.d("Ambient Temperature","Sensor registered");
         } else {
-            Toast.makeText(this, "The device does not support temperature sensor !", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "The device does not support temperature sensor!", Toast.LENGTH_LONG).show();
         }
     }
 
+    /**
+     * Add accelerometer & magnetic field sensor
+     * Toast if it does not exit
+     * User then needs to find north by himself
+     */
+    private void loadOrientation(){
+        // Load ambient temperature sensor
+        Sensor mAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        Sensor mGeomagnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
+        if (mAccelerometer != null) {
+            sensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+            Log.d("Orientation","accelerometer registered");
+        } else {
+            Toast.makeText(this, "The device does not support orienting to north! Please find north by yourself:D", Toast.LENGTH_LONG).show();
+        }
+
+        if (mGeomagnetic != null) {
+            sensorManager.registerListener(this, mGeomagnetic, SensorManager.SENSOR_DELAY_FASTEST);
+            Log.d("Orientation","Geomagnetic registered");
+        } else {
+            Toast.makeText(this, "The device does not support orienting to north! Please find north by yourself:D", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    float[] mGravity;
+    float[] mGeomagnetic;
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (event.values.length > 0) {
+        if (event.sensor.getType()==Sensor.TYPE_AMBIENT_TEMPERATURE && event.values.length > 0) {
             currentTemperature = event.values[0];
+            Log.d("temperature sensor","current temp: "+currentTemperature);
+            if(inTrip) updateTemperatureUI(currentTemperature);
+        }
+        // Get azimuth
+        float azimut;
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+            mGravity = event.values;
+        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+            mGeomagnetic = event.values;
+        if (mGravity != null && mGeomagnetic != null) {
+            float R[] = new float[9];
+            float I[] = new float[9];
+            if (SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic)) {
+                // orientation contains azimut, pitch and roll
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(R, orientation);
+                azimut = orientation[0];
+                float nowRotation = -(float) azimut * 360 / (2 * 3.14159f);
+                if (currentAzimuthRotation != nowRotation){
+                    currentAzimuthRotation = nowRotation;
+                    Log.d("Orientation sensor","azimuth rotation: "+currentAzimuthRotation);
+                    if(inTrip) compassAnimate(currentAngle,currentAzimuthRotation);
+                }
+            }
         }
     }
 
@@ -455,7 +534,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private void addProximityAlert(String name) {
         try {
             currentCheckpoint = checkpoints.get(name);
-//            lastDistToCenter.put(name, Double.MAX_VALUE);
+            lastDistToCenter.put(name, Double.MAX_VALUE);
             // Initiate trip instance
             currentTrip = new Trip(currentCheckpoint.getLocation());
             // start the location updates.
@@ -470,9 +549,15 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
      */
     private void removeProximityAlert(){
         try{
+            locationManager.removeUpdates(this);
+
             currentCheckpoint = null;
             currentTrip = null;
-            locationManager.removeUpdates(this);
+            lastDistToCenter = new HashMap<>();
+            updateDistSpeedUI(0,0);
+            compassAnimate(0,0);
+            updateTemperatureUI(0);
+            checkpointText.setText(getString(R.string.checkpoint_selection));
         }catch (SecurityException e) {
             Log.d("ERROR", e.getMessage());
         }
@@ -543,71 +628,128 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         int trip_stage = currentTrip.testStage(location, ARRIVE_THRESHOLD);
         switch (trip_stage){
             case R.string.trip_stage_arrive_checkpoint:
+                Log.d("Trip stage","Arrived check point");
                 Toast.makeText(this, String.format("You arrived the checkpoint %s\nNow going back...", currentCheckpoint.getName()),Toast.LENGTH_LONG).show();
-                distance = currentTrip.currentDistanceToCheck();
-                angle = currentTrip.currentAngleToCheck();
+                distance = currentTrip.currentDistanceToStart();
+                angle = currentTrip.currentAngleToStart();
                 currentCheckpoint = new Geofence("Startpoint",currentTrip.getStartPoint(), GEOFENCE_RADIUS);
+                lastDistToCenter.put("Startpoint", Double.MAX_VALUE);
+                checkpointText.setText(getString(R.string.checkpoint_goback));
+                // Update UI
+                updateDistSpeedUI(distance, speed);
+                compassAnimate((float)angle,currentAzimuthRotation);
                 break;
             case R.string.trip_stage_find_checkpoint:
                 distance = currentTrip.currentDistanceToCheck();
                 angle = currentTrip.currentAngleToCheck();
+                // Update UI
+                updateDistSpeedUI(distance, speed);
+                compassAnimate((float)angle,currentAzimuthRotation);
                 break;
             case R.string.trip_stage_find_startpoint:
                 distance = currentTrip.currentDistanceToStart();
                 angle = currentTrip.currentAngleToStart();
+                // Update UI
+                updateDistSpeedUI(distance, speed);
+                compassAnimate((float)angle,currentAzimuthRotation);
                 break;
             case R.string.trip_stage_arrive_startpoint:
-                distance = currentTrip.currentDistanceToStart();
-                angle = currentTrip.currentAngleToStart();
+                Log.d("Trip stage","Arrived start point");
                 // User return to start point, finish the trip
                 finishTrip(true);
                 break;
             default:
                 throw new IllegalStateException("Unexpected value: " + trip_stage);
         }
-        // Update UI
-        updateUI(distance, angle, temperature, speed);
+        currentAngle = (float) angle;
+        // Send current distance, angle, speed, temperature as an intent; This cannot support background running. So I just make it into comments.
+//        sendLocationChangedIntent(geofenceName, distance, angle, speed, temperature);
 
+        // Send notification if user approaching or leaving the destination geofence
+        if (currentCheckpoint != null) {
+            double geofenceRadius = currentCheckpoint.getRadius();
+            String geofenceName = currentCheckpoint.getName();
+            if (distance < geofenceRadius && lastDistToCenter.get(geofenceName) > geofenceRadius) {
+                sendProximityIntent(geofenceName, true);
+            } else if (distance > geofenceRadius && lastDistToCenter.get(geofenceName) < geofenceRadius) {
+                // In the opposite case, we must be leaving the geofence.
+                sendProximityIntent(geofenceName, false);
+            }
+            lastDistToCenter.put(geofenceName, distance);
+        }
 
-//        // In case the new distance is smaller than the radius of the fence, and
-//        // the old one is bigger, we are entering the geofence.
-//        double geofenceRadius = currentCheckpoint.getRadius();
-//        String geofenceName = currentCheckpoint.getName();
-//        if (distance < geofenceRadius && lastDistToCenter.get(geofenceName) > geofenceRadius) {
-//            sendProximityIntent(geofenceName, true);
-//        } else if (distance > geofenceRadius && lastDistToCenter.get(geofenceName) < geofenceRadius) {
-//            // In the opposite case, we must be leaving the geofence.
-//            sendProximityIntent(geofenceName, false);
-//        }
-//        // Send current distance, angle, speed, temperature as an intent; This cannot support background running. So I just make it into comments.
-////        sendLocationChangedIntent(geofenceName, distance, angle, speed, temperature);
-//
-//        lastDistToCenter.put(geofenceName, distance);
     }
 
-    private void updateUI(double distance, double angle, double temperature, double speed){
-        //TODO: UI for compass
-        distanceTxtView.setText(String.format("Distance: %.4f m", distance));
-        angleTxtView.setText(String.format("Angle: %.4f deg", angle));
-        temperatureTxtView.setText(String.format("Temperature: %.2f degree", temperature));
-        speedTxtView.setText(String.format("Current speed: %.3f m/s", speed));
+    /**
+     * Update UI of speed and distance
+     * @param distance current distance (meter) to destination
+     * @param speed current speed (km/h)
+     */
+    private void updateDistSpeedUI(double distance, double speed){
+        // Speed
+        digitSpeedView.updateSpeed((int) Math.round(speed));
+        // Distance
+        digitDistanceView.updateSpeed((int)distance);
     }
 
+    /**
+     * Update compass animation
+     * @param angle east to the north
+     * @param nowAzimuthRotation device rotation to north
+     */
+    private void compassAnimate(float angle, float nowAzimuthRotation){
+        // Compass Animation
+        Log.d("Orientation","AzimuthRotation: "+nowAzimuthRotation+" Angle to north: "+angle);
+        float degree = (float) ((nowAzimuthRotation+angle+360)%360);
+
+        compassAngle.setText(String.format("%3d°", (int)degree));
+        // Create a rotation animation (reverse turn degree degrees)
+        RotateAnimation ra = new RotateAnimation(currentDegree, degree,
+                Animation.RELATIVE_TO_SELF, 0.5f,
+                Animation.RELATIVE_TO_SELF, 0.5f);
+
+        // How long the animation will take place
+        ra.setDuration(210);
+        // Set the animation after the end of the reservation status
+        ra.setFillAfter(true);
+        // Start the animation
+        image.startAnimation(ra);
+        currentDegree = degree;
+    }
+
+    /**
+     * Update UI for temperature
+     * @param temperature current temperature
+     */
+    private void updateTemperatureUI(float temperature){
+        // Temperature
+        digitTempView.updateSpeed((int)temperature);
+    }
+
+    /**
+     * When the trip canceled or accomplished, finish the trip
+     * Give user feedback about metrics of the trip
+     * If the trip is successfully accomplished, save the rewards, records in SD Card
+     * @param arrived true if the trip is successfully accomplished
+     */
     private void finishTrip(boolean arrived){
-        String text = getString(R.string.trip_stage_arrive_startpoint);
-        Toast.makeText(this, text, Toast.LENGTH_LONG).show();
-
+        inTrip = false;
         double totalDistance = currentTrip.getTotalDistance();
         double totalDuration = currentTrip.getTotalDuration();
         double avg_speed = currentTrip.getAverageSpeed();
         double avg_temperature = currentTrip.getAverageTemparture();
-        //TODO: UI updates when trip finished -> release total distance, duration...
-        approachingTxtView.setText(String.format(
-                "Distant:%.2f meters\nDuration:%.2f seconds",
+
+        String record = String.format(
+                "\nYour moving distance:%.2f meters\nDuration:%.2f seconds\n",
                 currentTrip.getTotalDistance(),
-                currentTrip.getTotalDuration()));
+                currentTrip.getTotalDuration());
+
+        // UI updates when trip finished -> release total distance, duration...
         if(arrived){
             String reward = checkRewards(avg_speed, totalDistance, avg_temperature);
+            String text = getString(R.string.trip_stage_arrive_startpoint);
+            Toast.makeText(this, text+record+String.format("You get %s as a reward!!", reward), Toast.LENGTH_LONG).show();
+            // Save record to csv
             String line = String.format("%d,%.5f,%.5f,%.5f,%.5f,%.2f,%.1f,%.2f,%.2f,%s",
                     currentTrip.getStartTime(), //timestamp miliseconds
                     currentTrip.getStartPoint().getLongitude(),
@@ -620,12 +762,14 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                     avg_temperature,
                     reward);
             writeToCSV(line, REWARD_FILE_PATH);
+        }else{
+            Toast.makeText(this, "You cancel the trip!"+record, Toast.LENGTH_LONG).show();
         }
         removeProximityAlert();
     }
 
 
-    // ===================== util functions ====================
+    // ===================== UTIL FUNCTIONS ====================
     /**
      * Get current time
      * @return current time in milliseconds

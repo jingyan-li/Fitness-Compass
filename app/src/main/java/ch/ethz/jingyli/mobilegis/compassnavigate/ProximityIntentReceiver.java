@@ -13,11 +13,8 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
 /**
- * This is an external BroadcastReceiver, which runs independently of our MainActivity. We here
- * show how to create notifications in the Android Bar (on top of the Android screen).
- *
- * This is of course useful if our app is not started, or running in the back, and shows how we
- * can access location outside of a running Activity.
+ * This is an external BroadcastReceiver, which runs independently of our MainActivity. It will create
+ * notification in the notification bar to tell user he or she almost arrived the destination
  *
  * Ref: lab material
  */
@@ -30,7 +27,7 @@ public class ProximityIntentReceiver extends BroadcastReceiver {
         Log.d("ProximityIntentReceiver","Received!");
         if (entering) {
             Log.d(getClass().getSimpleName(), "Entering Geofence " + name);
-            sendNotification(context, "You are approaching " + name);
+            sendNotification(context, "You almost arrive at " + name);
         } else {
             Log.d(getClass().getSimpleName(), "Exiting Geofence " + name);
             sendNotification(context, "You are leaving " + name);

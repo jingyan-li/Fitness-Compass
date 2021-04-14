@@ -15,5 +15,10 @@
     <string name="trip_stage_find_checkpoint">Finding checkpoint</string>
     <string name="trip_stage_arrive_checkpoint">Congratulations! You arrived the checkpoint!</string>
     <string name="trip_stage_find_startpoint">Going back to the start point</string>
-    <string name="trip_stage_arrive_startpoint">Congratulations! You finished the trip!</string>
+    <string name="trip_stage_arrive_startpoint">Congratulations! You finished the trip! Your record is save!</string>
+
+    <string name="compass_text">  0°</string>
+    <string name="checkpoint_selection">Select a checkpoint you want to go!</string>
+    <string name="checkpoint_headto">You are heading to...</string>
+    <string name="checkpoint_goback">You are on the way return to your start point!</string>
 </resources>
