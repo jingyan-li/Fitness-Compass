@@ -15,7 +15,7 @@ running or walking near their home.
 :point_right: A basic compass screen shows the direction and distance to the checkpoint’s position
 (like on a radar)
 
-<p>Compass directs to the position of checkpoint</p>
+- Compass directs to the position of checkpoint
 
 :point_right: ​Show the current speed of the user and the temperature
 
@@ -27,7 +27,9 @@ running or walking near their home.
 
 ## UI
 
-![screenshot](./example/screenshot.png)
+<img src="./example/screenshot.png" alt="screenshot" style="zoom:60%;" />
+
+<img src="./example/screenshot3.png" alt="UI_Fullscreen" style="zoom:60%;" />
 
 ## Requirements
 
