@@ -154,7 +154,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private final double ARRIVE_THRESHOLD = 4.0; //unit: meter
 
     private Trip currentTrip;
-    private float currentTemperature = -100;
+    private float currentTemperature = 0;
     private float currentAzimuthRotation = 0;
     private boolean inTrip=false;
     private float currentAngle = 0;

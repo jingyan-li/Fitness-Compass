@@ -23,5 +23,5 @@
     <string name="compass_text">  0°</string>
     <string name="checkpoint_selection">Select a checkpoint you want to go!</string>
     <string name="checkpoint_headto">You are heading to...</string>
-    <string name="checkpoint_goback">You are on the way return to your start point!</string>
+    <string name="checkpoint_goback">Found checkpoint! Now return to start point!</string>
 </resources>
