@@ -34,150 +34,160 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <TextView
-                android:id="@+id/checkpoint_selection_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="50dp"
-                android:text="@string/checkpoint_selection"
-                android:textColor="@color/white"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"  />
-
-            <Spinner
-                android:id="@+id/checkpoint_spinner"
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="80dp"
-                android:layout_marginEnd="20dp"
-                android:background="@color/purple_200"
-                android:dropDownSelector="@color/design_default_color_background"
-                android:popupBackground="@color/black_overlay"
-                android:spinnerMode="dialog"
-                android:textColor="@color/white"
+                android:layout_marginBottom="1dp"
+                app:layout_constraintBottom_toTopOf="@+id/constraintLayout"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginTop="100dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <com.github.capur16.digitspeedviewlib.DigitSpeedView
-                    android:id="@+id/digit_speed_view"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:backgroundColor="@color/black"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:speed="0"
-                    app:speedTextColor="@color/purple_200"
-                    app:speedTextSize="15dp"
-                    app:unit="km/h"
-                    app:unitTextColor="@color/purple_200">
-
-                </com.github.capur16.digitspeedviewlib.DigitSpeedView>
+                app:layout_constraintStart_toStartOf="parent">
 
                 <TextView
-                    android:id="@+id/speed"
+                    android:id="@+id/checkpoint_selection_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="20dp"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/speed_text"
+                    android:layout_marginTop="50dp"
+                    android:text="@string/checkpoint_selection"
                     android:textColor="@color/white"
-                    android:textSize="18sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginTop="150dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <com.github.capur16.digitspeedviewlib.DigitSpeedView
-                    android:id="@+id/digit_distance_view"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:backgroundColor="@color/black"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:speed="0"
-                    app:speedTextColor="@color/purple_200"
-                    app:speedTextSize="15dp"
-                    app:unit="m"
-                    app:unitTextColor="@color/purple_200">
-
-                </com.github.capur16.digitspeedviewlib.DigitSpeedView>
-
-                <TextView
-                    android:id="@+id/distance"
-                    android:layout_width="wrap_content"
+                <Spinner
+                    android:id="@+id/checkpoint_spinner"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="20dp"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/distance_text"
+                    android:layout_marginTop="80dp"
+                    android:layout_marginEnd="20dp"
+                    android:background="@color/purple_200"
+                    android:dropDownSelector="@color/design_default_color_background"
+                    android:popupBackground="@color/black_overlay"
+                    android:spinnerMode="dialog"
                     android:textColor="@color/white"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginTop="200dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <com.github.capur16.digitspeedviewlib.DigitSpeedView
-                    android:id="@+id/digit_temperature_view"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:backgroundColor="@color/black"
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginTop="100dp"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:speed="0"
-                    app:speedTextColor="@color/purple_200"
-                    app:speedTextSize="15dp"
-                    app:unit="°C"
-                    app:unitTextColor="@color/purple_200">
-
-                </com.github.capur16.digitspeedviewlib.DigitSpeedView>
-
-                <TextView
-                    android:id="@+id/temperature"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="20dp"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/temperature_text"
-                    android:textColor="@color/white"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <com.github.capur16.digitspeedviewlib.DigitSpeedView
+                        android:id="@+id/digit_speed_view"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:backgroundColor="@color/black"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:speed="0"
+                        app:speedTextColor="@color/purple_200"
+                        app:speedTextSize="15dp"
+                        app:unit="km/h"
+                        app:unitTextColor="@color/purple_200">
+
+                    </com.github.capur16.digitspeedviewlib.DigitSpeedView>
+
+                    <TextView
+                        android:id="@+id/speed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="20dp"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/speed_text"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginTop="150dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <com.github.capur16.digitspeedviewlib.DigitSpeedView
+                        android:id="@+id/digit_distance_view"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:backgroundColor="@color/black"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:speed="0"
+                        app:speedTextColor="@color/purple_200"
+                        app:speedTextSize="15dp"
+                        app:unit="m"
+                        app:unitTextColor="@color/purple_200">
+
+                    </com.github.capur16.digitspeedviewlib.DigitSpeedView>
+
+                    <TextView
+                        android:id="@+id/distance"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="20dp"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/distance_text"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginTop="200dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <com.github.capur16.digitspeedviewlib.DigitSpeedView
+                        android:id="@+id/digit_temperature_view"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:backgroundColor="@color/black"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:speed="0"
+                        app:speedTextColor="@color/purple_200"
+                        app:speedTextSize="15dp"
+                        app:unit="°C"
+                        app:unitTextColor="@color/purple_200">
+
+                    </com.github.capur16.digitspeedviewlib.DigitSpeedView>
+
+                    <TextView
+                        android:id="@+id/temperature"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="20dp"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/temperature_text"
+                        android:textColor="@color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/constraintLayout"
                 android:layout_width="300dp"
                 android:layout_height="400dp"
                 android:layout_marginBottom="50dp"

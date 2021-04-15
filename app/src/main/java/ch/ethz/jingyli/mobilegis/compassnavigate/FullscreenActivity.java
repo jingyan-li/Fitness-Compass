@@ -54,10 +54,13 @@ import java.util.Map;
 import java.util.Scanner;
 
 /**
- * This activity....
+ * This activity implements a compass to support a round trip. Users can select check point to head to,
+ * then navigated by the app, the app will pop up message when user is closing to the check point,
+ * then user return back to the start point.
+ * Several metrics will be recorded in SD card.
  * @author Jingyan Li
  * @subject Mobile GIS and LBS --Assignment 1
- * @reference
+ * @reference Lab material
  */
 public class FullscreenActivity extends AppCompatActivity implements LocationListener, SensorEventListener {
     /**
@@ -70,7 +73,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
      * If {@link #AUTO_HIDE} is set, the number of milliseconds to wait after
      * user interaction before hiding the system UI.
      */
-    private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
+    private static final int AUTO_HIDE_DELAY_MILLIS = 500;
 
     /**
      * Some older devices needs a small delay between UI widget updates
@@ -246,6 +249,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         // External storage write permission
         checkSDStoragePermission();
+
         // Add broadcast receivers for proximity / location changed intents
         localProximityBroadcastReceiver = new BroadcastReceiver() {
             @Override
@@ -274,7 +278,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         };
         proximityIntentReceiver = new ProximityIntentReceiver();
 
-        // Navigation button
+        // Button to start navigation
         startBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -289,7 +293,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 inTrip=true;
             }
         });
-
+        // Button to cancel the trip
         cancelBtn.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
@@ -315,9 +319,10 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
 //        }
         registerReceiver(localProximityBroadcastReceiver, new IntentFilter(PROX_ALERT_INTENT));
         registerReceiver(proximityIntentReceiver, new IntentFilter(PROX_ALERT_INTENT));
-        loadAmbientTemperature();
-        loadOrientation();
-
+        if(inTrip){
+            loadAmbientTemperature();
+            loadOrientation();
+        }
         super.onStart();
         Log.d("App","Start");
     }
@@ -326,7 +331,9 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     protected void onStop() {
         // These objects are supposed to be unregistered here. But to test if the UI can be updated in the background, I just make them into comments.
 //        locationManager.removeUpdates(this);
-        sensorManager.unregisterListener(this);
+        if(!inTrip){
+            sensorManager.unregisterListener(this);
+        }
         unregisterReceiver(localProximityBroadcastReceiver);
         unregisterReceiver(proximityIntentReceiver);
         Log.d("App","Stop");
@@ -523,6 +530,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     float[] mGeomagnetic;
     @Override
     public void onSensorChanged(SensorEvent event) {
+        // Get temperature
         if (event.sensor.getType()==Sensor.TYPE_AMBIENT_TEMPERATURE && event.values.length > 0) {
             currentTemperature = event.values[0];
             Log.d("temperature sensor","current temp: "+currentTemperature);
@@ -558,7 +566,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     }
 
     /**
-     * Adds a proximity alert, when users' location changes, UI updates distance, angle, temperature and speed
+     * Add location updates, when users' location changes, UI updates distance, angle, temperature and speed
      * @param name   The name of the check point.
      */
     private void addProximityAlert(String name) {
@@ -578,7 +586,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     }
 
     /**
-     * Remove the proximity alert after the trip is finished or user cancels the trip
+     * Remove location updates after the trip is finished or user cancels the trip
      */
     private void removeProximityAlert(){
         try{
@@ -597,21 +605,16 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     }
 
     /**
-     * We use this method to send an intent stating that we are in proximity of a certain object,
-     * denoted by its "name". The boolean passed along tells us if we are entering of leaving
-     * the proximity.
+     * Send the intent if users are approaching the proximity of the area.
      *
      * @param name     The name of the proximity area.
-     * @param entering True if we're entering, false otherwise.
+     * @param entering True if we're approaching the proximity area, false otherwise.
      */
     private void sendProximityIntent(String name, boolean entering) {
         Intent i = new Intent(PROX_ALERT_INTENT);
         i.putExtra("name", name);
         i.putExtra(LocationManager.KEY_PROXIMITY_ENTERING, entering);
-        // Send the intent as a broadcast here. Every BroadcastReceiver, which is registered
-        // to listen to PROX_ALERT_INTENT will receive this intent!
-        // For example, ProximityIntentReceiver is registered in the Manifest, and the
-        // localBroadcastReceiver of MainActivity in onResume(...).
+
         this.sendBroadcast(i);
     }
 
@@ -698,7 +701,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         // Send current distance, angle, speed, temperature as an intent; This cannot support background running. So I just make it into comments.
 //        sendLocationChangedIntent(geofenceName, distance, angle, speed, temperature);
 
-        // Send notification if user approaching or leaving the destination geofence
+        // Send notification if user is approaching or leaving the destination geofence
         if (currentCheckpoint != null) {
             double geofenceRadius = currentCheckpoint.getRadius();
             String geofenceName = currentCheckpoint.getName();
