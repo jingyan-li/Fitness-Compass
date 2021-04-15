@@ -27,7 +27,7 @@ running or walking near their home.
 
 ## UI
 
-![screenshot](.\example\screenshot.png)
+![screenshot](./example/screenshot.png)
 
 ## Requirements
 
