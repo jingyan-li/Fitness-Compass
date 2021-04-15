@@ -190,6 +190,14 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
             "ch.ethz.jingyli.mobilegis.compassnavigate.PROXIMITY_ALERT";
     private static final String ON_LOCATION_CHANGED_INTENT = "ch.ethz.jingyli.mobilegis.compassnavigate.ONLOCATIONCHANGED_ALERT";
 
+    /**
+     * Define permission request codes
+     */
+    private static final int PERMISSION_CODE_BACKGROUNDLOCATION = 1;
+    private static final int PERMISSION_CODE_LOCATION = 2;
+    private static final int PERMISSION_CODE_EXTERNALSTORAGE = 0;
+
+    @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -236,10 +244,8 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         // Check location permission
         checkPermissions();
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-
         // External storage write permission
-        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
-
+        checkSDStoragePermission();
         // Add broadcast receivers for proximity / location changed intents
         localProximityBroadcastReceiver = new BroadcastReceiver() {
             @Override
@@ -272,6 +278,8 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         startBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // External storage write permission
+                checkSDStoragePermission();
                 // get selected check point from spinner
                 String selectedCheckpoint = checkPointSpinner.getSelectedItem().toString();
                 Log.d("Navigation button","Selected checkpoint: "+selectedCheckpoint);
@@ -296,6 +304,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         });
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
     protected void onStart() {
         checkPermissions();
@@ -305,10 +314,10 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
 //            addProximityAlert(currentCheckpoint.getName());
 //        }
         registerReceiver(localProximityBroadcastReceiver, new IntentFilter(PROX_ALERT_INTENT));
-        registerReceiver(localLocationChangedBroadcastReceiver, new IntentFilter(ON_LOCATION_CHANGED_INTENT));
         registerReceiver(proximityIntentReceiver, new IntentFilter(PROX_ALERT_INTENT));
         loadAmbientTemperature();
         loadOrientation();
+
         super.onStart();
         Log.d("App","Start");
     }
@@ -317,9 +326,8 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     protected void onStop() {
         // These objects are supposed to be unregistered here. But to test if the UI can be updated in the background, I just make them into comments.
 //        locationManager.removeUpdates(this);
-//        sensorManager.unregisterListener(this);
+        sensorManager.unregisterListener(this);
         unregisterReceiver(localProximityBroadcastReceiver);
-        unregisterReceiver(localLocationChangedBroadcastReceiver);
         unregisterReceiver(proximityIntentReceiver);
         Log.d("App","Stop");
         super.onStop();
@@ -399,16 +407,23 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+                            Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_CODE_LOCATION);
         }
-
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) !=
                 PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, 1);
+                    new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, PERMISSION_CODE_BACKGROUNDLOCATION);
         }
     }
 
+    /**
+     * Check external storage permission
+     */
+    private void checkSDStoragePermission(){
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)!= PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_CODE_EXTERNALSTORAGE);
+        }
+    }
     @Override
     public boolean shouldShowRequestPermissionRationale(@NonNull String permission) {
         return super.shouldShowRequestPermissionRationale(permission);
@@ -420,15 +435,30 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
             String permissions[],
             int[] grantResults) {
         switch (requestCode) {
-            case 1:
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(FullscreenActivity.this, "Permission Granted!", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(FullscreenActivity.this, "Permission Denied! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
+            case PERMISSION_CODE_BACKGROUNDLOCATION:
+                if (grantResults.length <= 0
+                        || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                            Toast.makeText(FullscreenActivity.this, "Location Permission NOT Granted! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
+                        } else {
+//                    Toast.makeText(FullscreenActivity.this, "Location Permission Granted!", Toast.LENGTH_SHORT).show();
+                }
+            case PERMISSION_CODE_LOCATION:
+                if (grantResults.length <= 0
+                        || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                            Toast.makeText(FullscreenActivity.this, "Location Permission NOT Granted! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
+                        } else {
+//                    Toast.makeText(FullscreenActivity.this, "Location Permission Granted!", Toast.LENGTH_SHORT).show();
+                }
+            case PERMISSION_CODE_EXTERNALSTORAGE:
+                if (grantResults.length <= 0
+                        || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                            Toast.makeText(FullscreenActivity.this, "External Storage Permission NOT Granted! We cannot store your record!", Toast.LENGTH_SHORT).show();
+                        } else {
+//                    Toast.makeText(FullscreenActivity.this, "External Storage Permission Granted!", Toast.LENGTH_SHORT).show();
                 }
         }
     }
+
 
     private void createNotificationChannel() {
         // Create the NotificationChannel, but only on API 26+ because
@@ -539,6 +569,9 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
             currentTrip = new Trip(currentCheckpoint.getLocation());
             // start the location updates.
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 5, this);
+            // register sensors
+            loadAmbientTemperature();
+            loadOrientation();
         } catch (SecurityException e) {
             Log.d("ERROR", e.getMessage());
         }
@@ -740,7 +773,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         double avg_temperature = currentTrip.getAverageTemparture();
 
         String record = String.format(
-                "\nYour moving distance:%.2f meters\nDuration:%.2f seconds\n",
+                "\nYour moving distance: %.2f meters\nDuration: %.2f seconds",
                 currentTrip.getTotalDistance(),
                 currentTrip.getTotalDuration());
 
@@ -748,7 +781,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         if(arrived){
             String reward = checkRewards(avg_speed, totalDistance, avg_temperature);
             String text = getString(R.string.trip_stage_arrive_startpoint);
-            Toast.makeText(this, text+record+String.format("You get %s as a reward!!", reward), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, text+record+String.format("\nYou get %s as a reward!!", reward), Toast.LENGTH_LONG).show();
             // Save record to csv
             String line = String.format("%d,%.5f,%.5f,%.5f,%.5f,%.2f,%.1f,%.2f,%.2f,%s",
                     currentTrip.getStartTime(), //timestamp miliseconds
@@ -761,8 +794,11 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                     avg_speed, //km/h
                     avg_temperature,
                     reward);
+
             writeToCSV(line, REWARD_FILE_PATH);
-        }else{
+        }
+
+        else{
             Toast.makeText(this, "You cancel the trip!"+record, Toast.LENGTH_LONG).show();
         }
         removeProximityAlert();
@@ -798,12 +834,16 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 writer.close();
                 outputStream.close();
                 Log.d("FileLog", "File Saved :  " + file.getPath());
+
+                Toast.makeText(this, getString(R.string.record_saved),Toast.LENGTH_LONG).show();
+                return;
             }catch(IOException e){
                 Log.e("FileLog", "File to write file");
             }
         }else{
             Log.e("FileLog", "SD card not mounted");
         }
+        Toast.makeText(this, getString(R.string.record_not_saved),Toast.LENGTH_LONG).show();
     }
 
     /**
