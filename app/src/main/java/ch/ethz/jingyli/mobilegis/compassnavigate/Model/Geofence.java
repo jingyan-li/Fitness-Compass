@@ -1,4 +1,4 @@
-package ch.ethz.jingyli.mobilegis.compassnavigate;
+package ch.ethz.jingyli.mobilegis.compassnavigate.Model;
 
 import android.location.Location;
 

@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="ch.ethz.jingyli.mobilegis.compassnavigate">
+
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-feature
+        android:glEsVersion="0x00020000"
+        android:required="true" />
 
     <application
         android:allowBackup="true"
@@ -13,6 +20,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CompassNavigate">
+        <activity android:name=".ShowFeature"></activity>
+        <activity
+            android:name=".UploadTrack"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/title_activity_upload_track"
+            android:theme="@style/Theme.CompassNavigate.Fullscreen" />
         <activity
             android:name=".FullscreenActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
@@ -27,7 +40,7 @@
 
         <receiver android:name=".ProximityIntentReceiver">
             <intent-filter>
-                <action android:name="ch.ethz.jingyli.mobilegis.compassnavigate.PROXIMITY_ALERT"/>
+                <action android:name="ch.ethz.jingyli.mobilegis.compassnavigate.PROXIMITY_ALERT" />
             </intent-filter>
         </receiver>
     </application>

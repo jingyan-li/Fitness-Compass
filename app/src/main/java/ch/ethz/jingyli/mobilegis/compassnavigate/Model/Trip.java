@@ -1,8 +1,9 @@
-package ch.ethz.jingyli.mobilegis.compassnavigate;
+package ch.ethz.jingyli.mobilegis.compassnavigate.Model;
 
 import android.location.Location;
 import java.util.ArrayList;
 
+import ch.ethz.jingyli.mobilegis.compassnavigate.R;
 
 
 /**
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 public class Trip {
     private Location startPoint;
     private Location checkPoint;
+    private String checkpointName;
     private long startTime; //Time in milliseconds
     private boolean started = false;
 
@@ -29,13 +31,18 @@ public class Trip {
     private boolean goTrip;
     private ArrayList<Double> temperatureList;
 
+    // Record trajectory
+    private ArrayList<Location> trajectory;
+
     /**
      * Create a new trip
      * @param checkPoint: checkPoint heading to
      */
-    public Trip(Location checkPoint){
+    public Trip(Location checkPoint, String checkpointName){
         this.checkPoint = checkPoint;
+        this.checkpointName = checkpointName;
         temperatureList = new ArrayList<>();
+        trajectory = new ArrayList<>();
     }
 
     // ----------------------FUNCTIONAL METHODS----------------------
@@ -57,6 +64,9 @@ public class Trip {
         // Initiate accumulated distance to zero
         this.totalDistance = 0.;
         this.totalDuration = 0.;
+
+        // Add new points to trajectory
+        this.trajectory.add(startPoint);
     }
 
     /**
@@ -79,6 +89,9 @@ public class Trip {
         this.currentTime = nowTime;
         this.currentLocation = nowPoint;
         this.temperatureList.add(temperature);
+
+        // Add new points to trajectory
+        this.trajectory.add(nowPoint);
     }
 
     /**
@@ -233,4 +246,12 @@ public class Trip {
         return totalDistance/totalDuration*3.6;
     }
 
+    public String getCheckpointName(){
+        return checkpointName;
+    }
+
+    //TODO: ASN2: Trajectory getter
+    public ArrayList<Location> getTrajectory(){
+        return trajectory;
+    }
 }

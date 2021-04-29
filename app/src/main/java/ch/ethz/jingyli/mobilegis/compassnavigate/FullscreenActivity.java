@@ -8,6 +8,7 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.DialogFragment;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -39,19 +40,44 @@ import android.widget.TextView;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
+import com.esri.arcgisruntime.ArcGISRuntimeEnvironment;
+import com.esri.arcgisruntime.concurrent.ListenableFuture;
+import com.esri.arcgisruntime.data.Feature;
+import com.esri.arcgisruntime.data.FeatureEditResult;
+import com.esri.arcgisruntime.data.ServiceFeatureTable;
+import com.esri.arcgisruntime.geometry.Point;
+import com.esri.arcgisruntime.geometry.PointCollection;
+import com.esri.arcgisruntime.geometry.Polyline;
+import com.esri.arcgisruntime.geometry.SpatialReference;
+import com.esri.arcgisruntime.geometry.SpatialReferences;
+import com.esri.arcgisruntime.layers.FeatureLayer;
+import com.esri.arcgisruntime.loadable.LoadStatus;
 import com.github.capur16.digitspeedviewlib.DigitSpeedView;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
+import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+
+import ch.ethz.jingyli.mobilegis.compassnavigate.Model.Geofence;
+import ch.ethz.jingyli.mobilegis.compassnavigate.Model.Trip;
+
+import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.getCurrentTime;
+import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.checkRewards;
+import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.locationArrayToString;
+import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.locationToString;
 
 /**
  * This activity implements a compass to support a round trip. Users can select check point to head to,
@@ -62,7 +88,10 @@ import java.util.Scanner;
  * @subject Mobile GIS and LBS --Assignment 1
  * @reference Lab material
  */
-public class FullscreenActivity extends AppCompatActivity implements LocationListener, SensorEventListener {
+public class FullscreenActivity extends AppCompatActivity
+        implements LocationListener, SensorEventListener,
+        ShareDialogFragment.ShareDialogListener,
+        UploadTrackDialogFragment.UploadTrackDialogListener {
     /**
      * Whether or not the system UI should be auto-hidden after
      * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
@@ -167,6 +196,9 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private Spinner checkPointSpinner;
     private Button startBtn;
     private Button cancelBtn;
+    //ASN2: Add button for sharing and opening map activity;
+    private FloatingActionButton shareBtn;
+    private FloatingActionButton mapBtn;
     private TextView checkpointText;
     // compass
     private ImageView image;
@@ -199,6 +231,16 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     private static final int PERMISSION_CODE_BACKGROUNDLOCATION = 1;
     private static final int PERMISSION_CODE_LOCATION = 2;
     private static final int PERMISSION_CODE_EXTERNALSTORAGE = 0;
+
+    /**
+     * Define string extras to UploadTrack activity
+     */
+//    private String trackAttribute;
+//    private String pointAttribute;
+    private String pointGeometry;
+    private String trackGeometry;
+    HashMap<String, Object> trackAttributes;
+    HashMap<String, Object> pointAttributes;
 
     @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
@@ -234,6 +276,9 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         digitDistanceView = (DigitSpeedView)findViewById(R.id.digit_distance_view);
         digitTempView = (DigitSpeedView)findViewById(R.id.digit_temperature_view);
         checkpointText = (TextView)findViewById(R.id.checkpoint_selection_text);
+        //ASN2 added buttons
+        shareBtn = (FloatingActionButton) findViewById(R.id.share_button);
+        mapBtn = (FloatingActionButton) findViewById(R.id.map_button);
 
         // Initiate variables
         lastDistToCenter = new HashMap<>();
@@ -306,6 +351,22 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
 
             }
         });
+        //TODO: ASN2: Share button onClick
+        shareBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                shareRecordOperations();
+            }
+        });
+        //TODO: ASN2: Map button onClick
+        mapBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // Trigger map acitivity
+                trigger_show_feature_activity();
+            }
+        });
+
     }
 
     @RequiresApi(api = Build.VERSION_CODES.Q)
@@ -533,7 +594,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         // Get temperature
         if (event.sensor.getType()==Sensor.TYPE_AMBIENT_TEMPERATURE && event.values.length > 0) {
             currentTemperature = event.values[0];
-            Log.d("temperature sensor","current temp: "+currentTemperature);
+//            Log.d("temperature sensor","current temp: "+currentTemperature);
             if(inTrip) updateTemperatureUI(currentTemperature);
         }
         // Get azimuth
@@ -553,7 +614,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                 float nowRotation = -(float) azimut * 360 / (2 * 3.14159f);
                 if (currentAzimuthRotation != nowRotation){
                     currentAzimuthRotation = nowRotation;
-                    Log.d("Orientation sensor","azimuth rotation: "+currentAzimuthRotation);
+//                    Log.d("Orientation sensor","azimuth rotation: "+currentAzimuthRotation);
                     if(inTrip) compassAnimate(currentAngle,currentAzimuthRotation);
                 }
             }
@@ -574,7 +635,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
             currentCheckpoint = checkpoints.get(name);
             lastDistToCenter.put(name, Double.MAX_VALUE);
             // Initiate trip instance
-            currentTrip = new Trip(currentCheckpoint.getLocation());
+            currentTrip = new Trip(currentCheckpoint.getLocation(), name);
             // start the location updates.
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 5, this);
             // register sensors
@@ -799,6 +860,27 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
                     reward);
 
             writeToCSV(line, REWARD_FILE_PATH);
+            pointGeometry = locationToString(currentTrip.getCheckPoint());
+            trackGeometry = locationArrayToString(currentTrip.getTrajectory());
+            trackAttributes = new HashMap<>();
+            pointAttributes =  new HashMap<>();
+            trackAttributes.put("user_id", Integer.parseInt(getString(R.string.user_id)));
+            trackAttributes.put("start_timestamp", Long.toString(currentTrip.getStartTime()));
+            trackAttributes.put("track_id",111); //TODO TRACK ID update
+            trackAttributes.put("reward", reward);
+            trackAttributes.put("distance", totalDistance);
+            trackAttributes.put("duration", totalDuration);
+            trackAttributes.put("average_speed", avg_speed);
+            trackAttributes.put("average_temp", avg_temperature);
+            pointAttributes.put("arrival_timestamp", Long.toString(getCurrentTime()));
+            pointAttributes.put("user_id", Integer.parseInt(getString(R.string.user_id)));
+            pointAttributes.put("track_id", 111); //TODO TRACK ID update
+            pointAttributes.put("checkpoint_name", currentTrip.getCheckpointName());
+
+            //TODO: ASN2: Trip finished dialog + ask to upload trajectory to server
+            DialogFragment dialog = new UploadTrackDialogFragment();
+            dialog.show(getSupportFragmentManager(), getString(R.string.FRAGMENT_TAG_UPLOAD_TRACK_DIALOG));
+
         }
 
         else{
@@ -808,17 +890,120 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
     }
 
 
-    // ===================== UTIL FUNCTIONS ====================
     /**
-     * Get current time
-     * @return current time in milliseconds
+     * When user wants to share his/her records to the internet,
+     * we first show a dialog to ask if she/he really want to share a record
+     * if the user clicks SHARE, then we read lastest record from external storage,
+     * create a string to share
      */
-    private long getCurrentTime(){
-        //creating Calendar instance
-        Calendar calendar = Calendar.getInstance();
-        //Returns current time in millis
-        long timeMilli2 = calendar.getTimeInMillis();
-        return timeMilli2;
+    private void shareRecordOperations(){
+        // Open a dialog to ask if user is willing to share record
+        DialogFragment dialog = new ShareDialogFragment();
+        dialog.show(getSupportFragmentManager(), getString(R.string.FRAGMENT_TAG_SHARE_DIALOG));
+    }
+
+    @Override
+    public void onDialogPositiveClick(DialogFragment dialog) {
+        assert dialog.getTag() != null;
+        if (dialog.getTag().equals(getString(R.string.FRAGMENT_TAG_SHARE_DIALOG))){
+            shareToApps();
+        }
+        if (dialog.getTag().equals(getString(R.string.FRAGMENT_TAG_UPLOAD_TRACK_DIALOG))){
+            trigger_upload_traj_activity();
+        }
+    }
+
+    @Override
+    public void onDialogNegativeClick(DialogFragment dialog) {
+        assert dialog.getTag() != null;
+//        if (dialog.getTag().equals(getString(R.string.FRAGMENT_TAG_SHARE_DIALOG))){
+//        }
+    }
+
+    /**
+     * Read the user records, create intents to share records
+     */
+    public void shareToApps(){
+        String record_to_share = readCSV(REWARD_FILE_PATH);
+        if ("".equals(record_to_share)){
+            Toast.makeText(this, getString(R.string.no_record_to_share),Toast.LENGTH_LONG).show();
+        }else{
+            // Sharing string
+            String sharing_text = "This is my latest achievement in Compass Navigate :D";
+            sharing_text += "\nUser id: "+ getString(R.string.user_id);
+            String[] records = record_to_share.split(",");
+            sharing_text += String.format("\nDistance: %d meter", (int)Float.parseFloat(records[5]));
+            sharing_text += String.format("\nDuration: %d seconds", (int)Float.parseFloat(records[6]));
+            sharing_text += String.format("\nReward: %s", records[9]);
+            // Trigger sharing record
+            Intent sendIntent = new Intent();
+            sendIntent.setAction(Intent.ACTION_SEND);
+            sendIntent.putExtra(Intent.EXTRA_TEXT, sharing_text);
+            sendIntent.setType("text/plain");
+
+            Intent shareIntent = Intent.createChooser(sendIntent, null);
+//            shareIntent.putExtra(Intent.EXTRA_CHOOSER_TARGETS, myChooserTargetArray);
+//            shareIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, myInitialIntentArray);
+            startActivity(shareIntent);
+        }
+    }
+
+    /**
+     * When user clicked yes in upload trajectory dialog, start UploadTrack activity and send extras
+     */
+    private void trigger_upload_traj_activity(){
+        //TODO ASN2: TRIGGER UPLOAD TRAJ ACTIVITY
+        Intent trigger_upload_traj = new Intent(this, UploadTrack.class);
+        trigger_upload_traj.putExtra(getString(R.string.EXTRA_TRACK_ATTRIBUTE),trackAttributes);
+        trigger_upload_traj.putExtra(getString(R.string.EXTRA_POINT_ATTRIBUTE), pointAttributes);
+        trigger_upload_traj.putExtra(getString(R.string.EXTRA_POINT_GEOMETRY), pointGeometry);
+        trigger_upload_traj.putExtra(getString(R.string.EXTRA_TRACK_GEOMETRY), trackGeometry);
+        startActivity(trigger_upload_traj);
+    }
+
+    /**
+     * Trigger show feature activity to show all features of the two feature layer
+     */
+    private void trigger_show_feature_activity(){
+        Intent intent = new Intent(this, ShowFeature.class);
+        startActivity(intent);
+    }
+
+    // ===================== UTIL FUNCTIONS ====================
+
+    /**
+     * Read the user record csv from external storage
+     * Return the last line (latest record)
+     * @param path : file path
+     * @return : last line of the file, or "" if the file does not exist
+     */
+    private String readCSV(String path){
+        String record_to_share = "";
+        if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
+            try{
+                //Get the text file
+                File file = new File(getExternalFilesDir(null),path);
+
+                //Read text from file
+                StringBuilder text = new StringBuilder();
+
+                BufferedReader br = new BufferedReader(new FileReader(file));
+                String line;
+
+                while ((line = br.readLine()) != null) {
+                    record_to_share = line;
+                }
+                br.close();
+                Log.e("FileLog", record_to_share);
+                return record_to_share;
+            }catch(IOException e){
+                Log.e("FileLog", "File to read file");
+            }
+        }else{
+            Log.e("FileLog", "SD card not mounted");
+        }
+        Toast.makeText(this, getString(R.string.record_not_exist),Toast.LENGTH_LONG).show();
+        return record_to_share;
     }
 
     /**
@@ -849,30 +1034,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         Toast.makeText(this, getString(R.string.record_not_saved),Toast.LENGTH_LONG).show();
     }
 
-    /**
-     * Check which rewards the trip gets
-     * @param avg_speed: average speed (km/h)
-     * @param distance: distance (m)
-     * @param avg_temp: average temperature (degree)
-     * @return reward string
-     */
-    private String checkRewards(double avg_speed, double distance, double avg_temp){
-        if(avg_speed>=4 && avg_speed<6 && distance<=1000 && avg_temp<20 && avg_speed>4){
-            return "Peach";
-        }
-        if(avg_speed>=4 && avg_speed<6 && distance>1000 && avg_temp>=20){
-            return "Watermelon";
-        }
-        if(avg_speed>=6 && avg_speed<8 && distance>0 && avg_temp>=20){
-            return "Ice Cream";
-        }
-        if(avg_speed>=8 && distance>1 && avg_temp>4000 && avg_temp<20){
-            return "Banana";
-        }
-        else {
-            return "Apple";
-        }
-    }
+
 
     //======================== UI functions ==================================
 
@@ -927,6 +1089,7 @@ public class FullscreenActivity extends AppCompatActivity implements LocationLis
         mHideHandler.removeCallbacks(mHideRunnable);
         mHideHandler.postDelayed(mHideRunnable, delayMillis);
     }
+
 
 
 }
