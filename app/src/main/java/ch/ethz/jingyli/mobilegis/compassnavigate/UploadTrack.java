@@ -12,6 +12,7 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.Toast;
 
 import com.esri.arcgisruntime.ArcGISRuntimeEnvironment;
@@ -136,7 +137,13 @@ public class UploadTrack extends AppCompatActivity {
      */
     private static final SpatialReference SPATIAL_REFERENCE = SpatialReferences.getWgs84();
     private MapView mMapView;
+    private ArcGISMap map;
     private static final double VIEWPOINT_SCALE = 8000;
+
+    /**
+     * Some widgets
+     */
+    private Button uploadBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -161,6 +168,9 @@ public class UploadTrack extends AppCompatActivity {
         // while interacting with the UI.
         findViewById(R.id.dummy_button).setOnTouchListener(mDelayHideTouchListener);
 
+        //Get widgets
+        uploadBtn = (Button) findViewById(R.id.uploadBtn);
+
         //SET ARCGIS API KEY
         ArcGISRuntimeEnvironment.setApiKey(getString(R.string.ARCGIS_API));
 
@@ -175,38 +185,12 @@ public class UploadTrack extends AppCompatActivity {
         mMapView = (MapView) findViewById(R.id.mapView);
 
         // create a map with streets basemap
-        ArcGISMap map = new ArcGISMap(BasemapStyle.ARCGIS_STREETS_NIGHT);
+        map = new ArcGISMap(BasemapStyle.ARCGIS_STREETS);
 
-        // create service feature table from URL
-
-        ServiceFeatureTable pointServiceFeatureTable = new ServiceFeatureTable(getString(R.string.URL_ROUND_TRIP_CHECKPOINT));
-        // create a feature layer from table
-        FeatureLayer pointFeatureLayer = new FeatureLayer(pointServiceFeatureTable);
-        // add the layer to the map
-        map.getOperationalLayers().add(pointFeatureLayer);
-
-        // add feature to layer
-        pointServiceFeatureTable.addDoneLoadingListener(()->{
-            if (pointServiceFeatureTable.getLoadStatus() == LoadStatus.LOADED){
-                // creates a new feature using default attributes and point
-                Feature feature = pointServiceFeatureTable.createFeature(pointAttributes, pointGeometry);
-                // check if feature can be added to feature table
-                if (pointServiceFeatureTable.canAdd()) {
-                    // add the new feature to the feature table and to server
-                    pointServiceFeatureTable.addFeatureAsync(feature).addDoneListener(() -> applyEdits(pointServiceFeatureTable));
-                } else {
-                    runOnUiThread(() -> logToUser(true, getString(R.string.error_cannot_add_to_feature_table)+' '+getString(R.string.URL_ROUND_TRIP_CHECKPOINT)));
-                }
-            }else{
-                Log.d("ArcGIS","Feature table not loaded. Status: "+pointServiceFeatureTable.getLoadStatus());
-                Log.d("ArcGIS","Load error: "+pointServiceFeatureTable.getLoadError().getCause());
-                Log.d("URL",getString(R.string.URL_ROUND_TRIP_CHECKPOINT));
-            }
-        });
         // Add graphic layer
         GraphicsOverlay overlay = new GraphicsOverlay();
         mMapView.getGraphicsOverlays().add(overlay);
-        SimpleMarkerSymbol s = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CROSS, Color.WHITE, 20);
+        SimpleMarkerSymbol s = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CROSS, Color.MAGENTA, 20);
         Graphic g1 = new Graphic(pointGeometry, s);
         overlay.getGraphics().add(g1);
         SimpleLineSymbol routeSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, Color.YELLOW, 4);
@@ -215,6 +199,13 @@ public class UploadTrack extends AppCompatActivity {
 
         mMapView.setMap(map);
         mMapView.setViewpoint(new Viewpoint(pointGeometry, VIEWPOINT_SCALE));
+
+        uploadBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                uploadRecordToArcgisServer(pointAttributes, pointGeometry, trackAttributes, trackGeometry);
+            }
+        });
 
     }
     /**
@@ -240,17 +231,20 @@ public class UploadTrack extends AppCompatActivity {
                 // check if feature can be added to feature table
                 if (trackServiceFeatureTable.canAdd()) {
                     // add the new feature to the feature table and to server
-                    trackServiceFeatureTable.addFeatureAsync(feature).addDoneListener(() -> applyEdits(trackServiceFeatureTable));
+                    trackServiceFeatureTable.addFeatureAsync(feature).addDoneListener(() -> applyEdits(trackServiceFeatureTable,"Your trajectory"));
                 } else {
                     runOnUiThread(() -> logToUser(true, getString(R.string.error_cannot_add_to_feature_table)+' '+getString(R.string.URL_ROUND_TRIP_TRACK)));
                 }
             }else{
-                Log.d("ArcGIS","TRACK Feature table not loaded. Status: "+trackServiceFeatureTable.getLoadStatus());
+                Log.d("ArcGIS","TRACK Feature table not loaded. Error: "+trackServiceFeatureTable.getLoadError().getCause());
             }
         });
 
         // create service feature table from URL
         ServiceFeatureTable checkpointServiceFeatureTable = new ServiceFeatureTable(getString(R.string.URL_ROUND_TRIP_CHECKPOINT));
+        // create a feature layer from table
+        FeatureLayer pointFeatureLayer = new FeatureLayer(checkpointServiceFeatureTable);
+        pointFeatureLayer.loadAsync();
         checkpointServiceFeatureTable.addDoneLoadingListener(()->{
             if(checkpointServiceFeatureTable.getLoadStatus()==LoadStatus.LOADED){
                 // creates a new feature using default attributes and point
@@ -258,12 +252,12 @@ public class UploadTrack extends AppCompatActivity {
                 // check if feature can be added to feature table
                 if (checkpointServiceFeatureTable.canAdd()) {
                     // add the new feature to the feature table and to server
-                    trackServiceFeatureTable.addFeatureAsync(checkpointFeature).addDoneListener(() -> applyEdits(checkpointServiceFeatureTable));
+                    checkpointServiceFeatureTable.addFeatureAsync(checkpointFeature).addDoneListener(() -> applyEdits(checkpointServiceFeatureTable,"Your checkpoint"));
                 } else {
                     runOnUiThread(() -> logToUser(true, getString(R.string.error_cannot_add_to_feature_table)+' '+getString(R.string.URL_ROUND_TRIP_CHECKPOINT)));
                 }
             }else{
-                Log.d("ArcGIS","CHECKPOINT Feature table not loaded. Status: "+trackServiceFeatureTable.getLoadStatus());
+                Log.d("ArcGIS","CHECKPOINT Feature table not loaded. Error: "+checkpointServiceFeatureTable.getLoadError().getCause());
             }
         });
 
@@ -274,7 +268,7 @@ public class UploadTrack extends AppCompatActivity {
      *
      * @param featureTable service feature table
      */
-    private void applyEdits(ServiceFeatureTable featureTable) {
+    private void applyEdits(ServiceFeatureTable featureTable, String tableName) {
 
         // apply the changes to the server
         final ListenableFuture<List<FeatureEditResult>> editResult = featureTable.applyEditsAsync();
@@ -284,7 +278,7 @@ public class UploadTrack extends AppCompatActivity {
                 // check if the server edit was successful
                 if (editResults != null && !editResults.isEmpty()) {
                     if (!editResults.get(0).hasCompletedWithErrors()) {
-                        runOnUiThread(() -> logToUser(false, getString(R.string.feature_added)));
+                        runOnUiThread(() -> logToUser(false, tableName+" "+getString(R.string.feature_added)));
                     } else {
                         throw editResults.get(0).getError();
                     }

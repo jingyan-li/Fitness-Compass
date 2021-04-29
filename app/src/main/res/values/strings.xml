@@ -11,6 +11,7 @@
     <string name="channel_name">Geofence Notification</string>
     <string name="channel_description">Notice entering or exiting</string>
     <string name="channel_id">A</string>
+    <string name="uploadBtn">UPLOAD</string>
 
     <string name="trip_stage_find_checkpoint">Finding checkpoint</string>
     <string name="trip_stage_arrive_checkpoint">Congratulations! You arrived the checkpoint!</string>
@@ -42,7 +43,7 @@
     <string name="ARCGIS_API">AAPKda949cb9018340c391e118a833642acemDkgC0s-nuo1aqdl1R31JKOZl8uEh4PLBFql1pkNJD_5LifBaT-mU36ZcZtyBdHX</string>
     <string name="world_topo_service">http://services.arcgisonline.com/arcgis/rest/services/World_Topo_Map/MapServer</string>
     <string name="error_cannot_add_to_feature_table">ERROR: Cannot create the feature!</string>
-    <string name="feature_added">Your feature is successfully added!</string>
+    <string name="feature_added">is successfully added!</string>
     <string name="error_applying_edits">ERROR: Cannot edit the feature table!</string>
     <string name="title_activity_upload_track">Upload Your Track</string>
 
