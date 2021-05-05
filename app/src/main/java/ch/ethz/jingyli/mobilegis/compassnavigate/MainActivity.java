@@ -6,6 +6,7 @@ import android.annotation.SuppressLint;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.DialogFragment;
@@ -14,8 +15,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -40,18 +43,6 @@ import android.widget.TextView;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
-import com.esri.arcgisruntime.ArcGISRuntimeEnvironment;
-import com.esri.arcgisruntime.concurrent.ListenableFuture;
-import com.esri.arcgisruntime.data.Feature;
-import com.esri.arcgisruntime.data.FeatureEditResult;
-import com.esri.arcgisruntime.data.ServiceFeatureTable;
-import com.esri.arcgisruntime.geometry.Point;
-import com.esri.arcgisruntime.geometry.PointCollection;
-import com.esri.arcgisruntime.geometry.Polyline;
-import com.esri.arcgisruntime.geometry.SpatialReference;
-import com.esri.arcgisruntime.geometry.SpatialReferences;
-import com.esri.arcgisruntime.layers.FeatureLayer;
-import com.esri.arcgisruntime.loadable.LoadStatus;
 import com.github.capur16.digitspeedviewlib.DigitSpeedView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -63,14 +54,11 @@ import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ExecutionException;
 
+import ch.ethz.jingyli.mobilegis.compassnavigate.Fragment.ShareDialogFragment;
+import ch.ethz.jingyli.mobilegis.compassnavigate.Fragment.UploadTrackDialogFragment;
 import ch.ethz.jingyli.mobilegis.compassnavigate.Model.Geofence;
 import ch.ethz.jingyli.mobilegis.compassnavigate.Model.Trip;
 
@@ -88,7 +76,7 @@ import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.locationToString;
  * @subject Mobile GIS and LBS --Assignment 1
  * @reference Lab material
  */
-public class FullscreenActivity extends AppCompatActivity
+public class MainActivity extends AppCompatActivity
         implements LocationListener, SensorEventListener,
         ShareDialogFragment.ShareDialogListener,
         UploadTrackDialogFragment.UploadTrackDialogListener {
@@ -246,7 +234,6 @@ public class FullscreenActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_fullscreen);
 
         mVisible = true;
@@ -415,12 +402,31 @@ public class FullscreenActivity extends AppCompatActivity
         Log.d("App","Destroy");
         super.onDestroy();
     }
+
     @Override
-    public void onBackPressed(){
-        // Move the activity to background
-        moveTaskToBack(false);
+    public void onBackPressed() {
+        //TODO: ASN2: Ask for sharing when pressing back button to quit app
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(getString(R.string.ask_for_share_record_before_exit))
+                .setCancelable(false)
+                .setPositiveButton(getString(R.string.fire), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        shareToApps();
+                    }
+                })
+                .setNegativeButton(getString(R.string.exit), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                        finish();
+                        // Move the activity to background
+                        moveTaskToBack(false);
+                    }
+                });
+        AlertDialog alert = builder.create();
+        alert.show();
 
     }
+
     /**
      * readCheckPoints
      * Read check points from res/raw/checkpoints.csv and store the check points in the hashmap as Geofence object
@@ -506,21 +512,21 @@ public class FullscreenActivity extends AppCompatActivity
             case PERMISSION_CODE_BACKGROUNDLOCATION:
                 if (grantResults.length <= 0
                         || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                            Toast.makeText(FullscreenActivity.this, "Location Permission NOT Granted! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "Location Permission NOT Granted! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
                         } else {
 //                    Toast.makeText(FullscreenActivity.this, "Location Permission Granted!", Toast.LENGTH_SHORT).show();
                 }
             case PERMISSION_CODE_LOCATION:
                 if (grantResults.length <= 0
                         || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                            Toast.makeText(FullscreenActivity.this, "Location Permission NOT Granted! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "Location Permission NOT Granted! Please go to Settings to accept position permission!", Toast.LENGTH_SHORT).show();
                         } else {
 //                    Toast.makeText(FullscreenActivity.this, "Location Permission Granted!", Toast.LENGTH_SHORT).show();
                 }
             case PERMISSION_CODE_EXTERNALSTORAGE:
                 if (grantResults.length <= 0
                         || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                            Toast.makeText(FullscreenActivity.this, "External Storage Permission NOT Granted! We cannot store your record!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "External Storage Permission NOT Granted! We cannot store your record!", Toast.LENGTH_SHORT).show();
                         } else {
 //                    Toast.makeText(FullscreenActivity.this, "External Storage Permission Granted!", Toast.LENGTH_SHORT).show();
                 }
@@ -860,27 +866,35 @@ public class FullscreenActivity extends AppCompatActivity
                     reward);
 
             writeToCSV(line, REWARD_FILE_PATH);
+            //TODO: ASN2: Trip finished dialog + ask to upload trajectory to server
+
+            // Get track ID
+            SharedPreferences sharedPreferences = this.getSharedPreferences(getString(R.string.SHARED_PREFERENCE_DATA),this.MODE_PRIVATE);
+            int TRACK_ID = sharedPreferences.getInt(getString(R.string.SHARED_PREFERENCE_KEY),0);
+            // Set geometry and attributes to upload to server
             pointGeometry = locationToString(currentTrip.getCheckPoint());
             trackGeometry = locationArrayToString(currentTrip.getTrajectory());
             trackAttributes = new HashMap<>();
             pointAttributes =  new HashMap<>();
             trackAttributes.put("user_id", Integer.parseInt(getString(R.string.user_id)));
             trackAttributes.put("start_timestamp", Long.toString(currentTrip.getStartTime()));
-            trackAttributes.put("track_id",111); //TODO TRACK ID update
+            trackAttributes.put("track_id",TRACK_ID);
             trackAttributes.put("reward", reward);
-            trackAttributes.put("distance", totalDistance);
-            trackAttributes.put("duration", totalDuration);
-            trackAttributes.put("average_speed", avg_speed);
+            trackAttributes.put("distance", totalDistance/1000); //km
+            trackAttributes.put("duration", totalDuration); //seconds
+            trackAttributes.put("average_speed", avg_speed); //km/h
             trackAttributes.put("average_temp", avg_temperature);
-            pointAttributes.put("arrival_timestamp", Long.toString(getCurrentTime()));
+            pointAttributes.put("arrival_timestamp", Long.toString(getCurrentTime())); //milliseconds
             pointAttributes.put("user_id", Integer.parseInt(getString(R.string.user_id)));
-            pointAttributes.put("track_id", 111); //TODO TRACK ID update
+            pointAttributes.put("track_id", TRACK_ID);
             pointAttributes.put("checkpoint_name", currentTrip.getCheckpointName());
-
-            //TODO: ASN2: Trip finished dialog + ask to upload trajectory to server
+            Log.d("Track ID Update", String.valueOf(TRACK_ID));
+            // Update track ID
+            TRACK_ID++;
+            sharedPreferences.edit().putInt(getString(R.string.SHARED_PREFERENCE_KEY),TRACK_ID).apply();
+            // Show the dialog to ask for uploading records
             DialogFragment dialog = new UploadTrackDialogFragment();
             dialog.show(getSupportFragmentManager(), getString(R.string.FRAGMENT_TAG_UPLOAD_TRACK_DIALOG));
-
         }
 
         else{
@@ -916,14 +930,13 @@ public class FullscreenActivity extends AppCompatActivity
     @Override
     public void onDialogNegativeClick(DialogFragment dialog) {
         assert dialog.getTag() != null;
-//        if (dialog.getTag().equals(getString(R.string.FRAGMENT_TAG_SHARE_DIALOG))){
-//        }
     }
 
     /**
      * Read the user records, create intents to share records
      */
     public void shareToApps(){
+        //TODO: ASN2: Trigger share intent
         String record_to_share = readCSV(REWARD_FILE_PATH);
         if ("".equals(record_to_share)){
             Toast.makeText(this, getString(R.string.no_record_to_share),Toast.LENGTH_LONG).show();
@@ -953,7 +966,7 @@ public class FullscreenActivity extends AppCompatActivity
      */
     private void trigger_upload_traj_activity(){
         //TODO ASN2: TRIGGER UPLOAD TRAJ ACTIVITY
-        Intent trigger_upload_traj = new Intent(this, UploadTrack.class);
+        Intent trigger_upload_traj = new Intent(this, UploadTrackActivity.class);
         trigger_upload_traj.putExtra(getString(R.string.EXTRA_TRACK_ATTRIBUTE),trackAttributes);
         trigger_upload_traj.putExtra(getString(R.string.EXTRA_POINT_ATTRIBUTE), pointAttributes);
         trigger_upload_traj.putExtra(getString(R.string.EXTRA_POINT_GEOMETRY), pointGeometry);
@@ -965,7 +978,7 @@ public class FullscreenActivity extends AppCompatActivity
      * Trigger show feature activity to show all features of the two feature layer
      */
     private void trigger_show_feature_activity(){
-        Intent intent = new Intent(this, ShowFeature.class);
+        Intent intent = new Intent(this, TrackReviewActivity.class);
         startActivity(intent);
     }
 

@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/black"
     android:theme="@style/ThemeOverlay.CompassNavigate.FullscreenContainer"
-    tools:context=".FullscreenActivity">
+    tools:context=".MainActivity">
 
     <!-- The primary full-screen view. This can be replaced with whatever view
          is needed to present your content, e.g. VideoView, SurfaceView,
@@ -276,7 +276,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="35dp"
                 android:layout_marginBottom="385dp"
+                android:backgroundTint="@color/teal_200"
                 android:clickable="true"
+                app:backgroundTint="#7AC4AC"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:srcCompat="@android:drawable/ic_menu_share" />
@@ -287,7 +289,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="35dp"
                 android:layout_marginBottom="325dp"
+                android:backgroundTint="@color/teal_200"
                 android:clickable="true"
+                app:backgroundTint="#7AC4AC"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:srcCompat="@android:drawable/ic_dialog_map" />

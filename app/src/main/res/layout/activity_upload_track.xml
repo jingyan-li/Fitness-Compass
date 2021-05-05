@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="?attr/fullscreenBackgroundColor"
     android:theme="@style/ThemeOverlay.CompassNavigate.FullscreenContainer"
-    tools:context=".UploadTrack">
+    tools:context=".UploadTrackActivity">
 
     <!-- The primary full-screen view. This can be replaced with whatever view
          is needed to present your content, e.g. VideoView, SurfaceView,
@@ -15,15 +15,17 @@
         android:id="@+id/fullscreen_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center"
+        android:background="#000000"
+        android:backgroundTint="#000000"
+        android:gravity="center_horizontal"
         android:keepScreenOn="true"
-        android:text="@string/dummy_content"
-        android:textColor="?attr/fullscreenTextColor"
-        android:textSize="50sp"
-        android:textStyle="bold"/>
-
+        android:text="@string/upload_text"
+        android:textColor="@color/teal_200"
+        android:textSize="20sp"
+        android:textStyle="bold" />
     <!-- This FrameLayout insets its children based on system windows using
          android:fitsSystemWindows. -->
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -33,15 +35,29 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+
+
             <Button
                 android:id="@+id/uploadBtn"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="85dp"
+                android:layout_marginEnd="10dp"
                 android:text="@string/uploadBtn"
                 app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/backBtn" />
+
+            <Button
+                android:id="@+id/backBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/back_button"
+                android:layout_marginBottom="85dp"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent" />
+                app:layout_constraintStart_toEndOf="@id/uploadBtn"
+                />
 
             <com.esri.arcgisruntime.mapping.view.MapView
                 android:id="@+id/mapView"
@@ -54,6 +70,22 @@
 
             </com.esri.arcgisruntime.mapping.view.MapView>
 
+            <TextView
+                android:id="@+id/textView"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:background="@color/purple_700"
+                android:gravity="center"
+                android:padding="20dp"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:text="@string/upload_text"
+                android:textColor="@color/white"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toTopOf="@+id/mapView"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <LinearLayout
@@ -72,6 +104,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/dummy_button" />
+
 
         </LinearLayout>
     </FrameLayout>

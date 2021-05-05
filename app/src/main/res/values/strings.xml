@@ -1,7 +1,10 @@
 <resources>
     <string name="app_name">Compass Navigate</string>
+    <string name="label_track_review">Track Review</string>
+    <string name="label_upload_feature">Upload Record</string>
     <string name="dummy_button">Full Screen</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="map_view_dummy">Map\nView</string>
     <string name="distance_text">Distance</string>
     <string name="angle_text">Angle</string>
     <string name="temperature_text">Temperature</string>
@@ -12,6 +15,9 @@
     <string name="channel_description">Notice entering or exiting</string>
     <string name="channel_id">A</string>
     <string name="uploadBtn">UPLOAD</string>
+    <string name="back_button">BACK</string>
+    <string name="upload_text">Upload the checkpoint and your trajectory to ArcGIS Server!</string>
+    <string name="track_review_search_button">SEARCH</string>
 
     <string name="trip_stage_find_checkpoint">Finding checkpoint</string>
     <string name="trip_stage_arrive_checkpoint">Congratulations! You arrived the checkpoint!</string>
@@ -29,15 +35,21 @@
     <string name="checkpoint_goback">Found checkpoint! Now return to start point!</string>
 
     <string name="user_id">8</string>
-
-    <string name="ask_for_share_record">Do you want to share your latest achievement?</string>
-    <string name="fire">SHARE</string>
-    <string name="cancel">CANCEL</string>
+    <string name="SHARED_PREFERENCE_DATA">DATA</string>
+    <string name="SHARED_PREFERENCE_KEY">TRACKID</string>
 
     <string name="FRAGMENT_TAG_SHARE_DIALOG">ShareDialogFragment</string>
     <string name="FRAGMENT_TAG_UPLOAD_TRACK_DIALOG">UploadTrackDialogFragment</string>
-
+    <string name="FRAGMENT_TAG_BACK_DIALOG">BackDialogFragment</string>
+    <string name="ask_for_share_record">Do you want to share your latest achievement?</string>
+    <string name="ask_for_share_record_before_exit">Do you want to share your latest achievement before exit?</string>
     <string name="ask_for_upload_track">Do you want to share your trajectory to ArcGIS Server?</string>
+    <string name="fire">SHARE</string>
+    <string name="exit">EXIT</string>
+    <string name="cancel">CANCEL</string>
+    <string name="ask_for_back">You have not successfully uploaded your records. Do you really want to go back?</string>
+    <string name="back">BACK</string>
+
     <string name="URL_ROUND_TRIP_TRACK">https://services1.arcgis.com/i9MtZ1vtgD3gTnyL/arcgis/rest/services/roundTripTrack/FeatureServer/0</string>
     <string name="URL_ROUND_TRIP_CHECKPOINT">https://services1.arcgis.com/i9MtZ1vtgD3gTnyL/arcgis/rest/services/roundTripCheckpoint/FeatureServer/0</string>
     <string name="ARCGIS_API">AAPKda949cb9018340c391e118a833642acemDkgC0s-nuo1aqdl1R31JKOZl8uEh4PLBFql1pkNJD_5LifBaT-mU36ZcZtyBdHX</string>
@@ -51,4 +63,7 @@
     <string name="EXTRA_POINT_ATTRIBUTE">pointAttributes</string>
     <string name="EXTRA_TRACK_GEOMETRY">trackGeometry</string>
     <string name="EXTRA_POINT_GEOMETRY">pointGeometry</string>
+
+    <string name="Track_Review_Spinner_All">All Records</string>
+    <string name="Track_Review_Spinner_User">User\t</string>
 </resources>

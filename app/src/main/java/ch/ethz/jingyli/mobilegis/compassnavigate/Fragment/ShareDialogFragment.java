@@ -1,4 +1,4 @@
-package ch.ethz.jingyli.mobilegis.compassnavigate;
+package ch.ethz.jingyli.mobilegis.compassnavigate.Fragment;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -7,6 +7,8 @@ import android.os.Bundle;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
+
+import ch.ethz.jingyli.mobilegis.compassnavigate.R;
 
 public class ShareDialogFragment extends DialogFragment {
     public interface ShareDialogListener {

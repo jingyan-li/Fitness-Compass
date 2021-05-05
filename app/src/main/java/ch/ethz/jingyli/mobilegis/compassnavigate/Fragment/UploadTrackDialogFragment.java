@@ -1,4 +1,4 @@
-package ch.ethz.jingyli.mobilegis.compassnavigate;
+package ch.ethz.jingyli.mobilegis.compassnavigate.Fragment;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -6,9 +6,10 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.util.Log;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
+
+import ch.ethz.jingyli.mobilegis.compassnavigate.R;
 
 public class UploadTrackDialogFragment extends DialogFragment {
     public interface UploadTrackDialogListener{

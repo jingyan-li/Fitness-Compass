@@ -20,14 +20,15 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CompassNavigate">
-        <activity android:name=".ShowFeature"></activity>
+        <activity android:name=".TrackReviewActivity"
+            android:label="@string/label_track_review"></activity>
         <activity
-            android:name=".UploadTrack"
+            android:name=".UploadTrackActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
-            android:label="@string/title_activity_upload_track"
+            android:label="@string/label_upload_feature"
             android:theme="@style/Theme.CompassNavigate.Fullscreen" />
         <activity
-            android:name=".FullscreenActivity"
+            android:name=".MainActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:label="@string/app_name"
             android:theme="@style/Theme.CompassNavigate.Fullscreen">

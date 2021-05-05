@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
 
 import android.content.Intent;
 import android.graphics.Color;
@@ -24,11 +25,9 @@ import com.esri.arcgisruntime.geometry.Point;
 import com.esri.arcgisruntime.geometry.Polyline;
 import com.esri.arcgisruntime.geometry.SpatialReference;
 import com.esri.arcgisruntime.geometry.SpatialReferences;
-import com.esri.arcgisruntime.layers.ArcGISTiledLayer;
 import com.esri.arcgisruntime.layers.FeatureLayer;
 import com.esri.arcgisruntime.loadable.LoadStatus;
 import com.esri.arcgisruntime.mapping.ArcGISMap;
-import com.esri.arcgisruntime.mapping.Basemap;
 import com.esri.arcgisruntime.mapping.BasemapStyle;
 import com.esri.arcgisruntime.mapping.Viewpoint;
 import com.esri.arcgisruntime.mapping.view.Graphic;
@@ -43,6 +42,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
+import ch.ethz.jingyli.mobilegis.compassnavigate.Fragment.BackDialogFragment;
+import ch.ethz.jingyli.mobilegis.compassnavigate.Fragment.UploadTrackDialogFragment;
+
 import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.pointStringToPoint;
 import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.trackStringToPolyline;
 
@@ -51,7 +53,7 @@ import static ch.ethz.jingyli.mobilegis.compassnavigate.Utils.trackStringToPolyl
  * An example full-screen activity that shows and hides the system UI (i.e.
  * status bar and navigation/system bar) with user interaction.
  */
-public class UploadTrack extends AppCompatActivity {
+public class UploadTrackActivity extends AppCompatActivity implements BackDialogFragment.BackDialogListener {
     /**
      * Whether or not the system UI should be auto-hidden after
      * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
@@ -138,12 +140,13 @@ public class UploadTrack extends AppCompatActivity {
     private static final SpatialReference SPATIAL_REFERENCE = SpatialReferences.getWgs84();
     private MapView mMapView;
     private ArcGISMap map;
-    private static final double VIEWPOINT_SCALE = 8000;
-
+    private static final double VIEWPOINT_SCALE = 5000;
+    private boolean uploaded;
     /**
      * Some widgets
      */
     private Button uploadBtn;
+    private Button backBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -170,6 +173,9 @@ public class UploadTrack extends AppCompatActivity {
 
         //Get widgets
         uploadBtn = (Button) findViewById(R.id.uploadBtn);
+        backBtn = (Button) findViewById(R.id.backBtn);
+        //Initialize variables
+        uploaded = false;
 
         //SET ARCGIS API KEY
         ArcGISRuntimeEnvironment.setApiKey(getString(R.string.ARCGIS_API));
@@ -185,17 +191,17 @@ public class UploadTrack extends AppCompatActivity {
         mMapView = (MapView) findViewById(R.id.mapView);
 
         // create a map with streets basemap
-        map = new ArcGISMap(BasemapStyle.ARCGIS_STREETS);
+        map = new ArcGISMap(BasemapStyle.ARCGIS_NAVIGATION_NIGHT);
 
         // Add graphic layer
         GraphicsOverlay overlay = new GraphicsOverlay();
         mMapView.getGraphicsOverlays().add(overlay);
-        SimpleMarkerSymbol s = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CROSS, Color.MAGENTA, 20);
+        SimpleMarkerSymbol s = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CROSS, Color.parseColor(getString(R.color.purple_200)), 20);
         Graphic g1 = new Graphic(pointGeometry, s);
-        overlay.getGraphics().add(g1);
-        SimpleLineSymbol routeSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, Color.YELLOW, 4);
+        SimpleLineSymbol routeSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, Color.parseColor(getString(R.color.purple_500)), 4);
         Graphic routeGraphic = new Graphic(trackGeometry, routeSymbol);
         overlay.getGraphics().add(routeGraphic);
+        overlay.getGraphics().add(g1);
 
         mMapView.setMap(map);
         mMapView.setViewpoint(new Viewpoint(pointGeometry, VIEWPOINT_SCALE));
@@ -206,16 +212,37 @@ public class UploadTrack extends AppCompatActivity {
                 uploadRecordToArcgisServer(pointAttributes, pointGeometry, trackAttributes, trackGeometry);
             }
         });
+        backBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(uploaded){
+                    triggerBackToMain();
+                }else{
+                    DialogFragment dialog = new BackDialogFragment();
+                    dialog.show(getSupportFragmentManager(), getString(R.string.FRAGMENT_TAG_BACK_DIALOG));
+                }
+            }
+        });
 
     }
+
+    /**
+     * Back to Main Activity
+     */
+    private void triggerBackToMain(){
+        Intent intent = new Intent(this,
+                MainActivity.class);
+        startActivity(intent);
+    }
+
     /**
      * Add point feature and trajectory feature to ArcGIS service layer
-     * @param checkpointAttributes
-     * @param point
-     * @param trackAttributes
-     * @param track
+     * @param checkpointAttributes attributes of checkpoint feature
+     * @param point geometry of checkpoint
+     * @param trackAttributes attributes of track feature
+     * @param track geometry of track
      */
-    public void uploadRecordToArcgisServer(Map<String, Object> checkpointAttributes, Point point, Map<String, Object> trackAttributes, Polyline track){
+    private void uploadRecordToArcgisServer(Map<String, Object> checkpointAttributes, Point point, Map<String, Object> trackAttributes, Polyline track){
         //TODO Implement method uploadRecordToArcgisServer
 
         // create service feature table from URL
@@ -279,6 +306,7 @@ public class UploadTrack extends AppCompatActivity {
                 if (editResults != null && !editResults.isEmpty()) {
                     if (!editResults.get(0).hasCompletedWithErrors()) {
                         runOnUiThread(() -> logToUser(false, tableName+" "+getString(R.string.feature_added)));
+                        uploaded = true;
                     } else {
                         throw editResults.get(0).getError();
                     }
@@ -296,7 +324,7 @@ public class UploadTrack extends AppCompatActivity {
      * @param message message to display
      */
     private void logToUser(boolean isError, String message) {
-        String TAG = UploadTrack.class.getSimpleName();
+        String TAG = UploadTrackActivity.class.getSimpleName();
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
         if (isError) {
             Log.e(TAG, message);
@@ -357,5 +385,17 @@ public class UploadTrack extends AppCompatActivity {
     private void delayedHide(int delayMillis) {
         mHideHandler.removeCallbacks(mHideRunnable);
         mHideHandler.postDelayed(mHideRunnable, delayMillis);
+    }
+
+    @Override
+    public void onDialogPositiveClick(DialogFragment dialog) {
+        if(dialog.getTag().equals(getString(R.string.FRAGMENT_TAG_BACK_DIALOG))){
+            triggerBackToMain();
+        }
+    }
+
+    @Override
+    public void onDialogNegativeClick(DialogFragment dialog) {
+
     }
 }

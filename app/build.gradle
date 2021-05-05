@@ -41,4 +41,5 @@ dependencies {
     implementation 'com.github.capur16:digitspeedviewlib:1.0.3'
 
     implementation 'com.esri.arcgisruntime:arcgis-android:100.10.0'
+
 }
