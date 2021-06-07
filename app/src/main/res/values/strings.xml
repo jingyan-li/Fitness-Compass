@@ -83,4 +83,8 @@
     <string name="model_peach">models/Peach.gltf</string>
     <string name="model_watermelon">models/watermelon.gltf</string>
     <string name="ar_spinner_default">Select a reward to place</string>
+    <string name="DIALOG_ASK_FOR_HELP">You may send a message to +4100000000 to get help :D</string>
+    <string name="HELP">HELP</string>
+    <string name="FRAGMENT_TAG_HELP_DIALOG">HelpDialogFragment</string>
+    <string name="GET_HELP_TEXT">I just met a problem in using CompassNavigate AR Session. The problem is: ...Please write down your problem here...</string>
 </resources>

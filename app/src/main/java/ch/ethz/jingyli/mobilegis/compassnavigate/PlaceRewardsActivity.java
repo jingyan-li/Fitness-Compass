@@ -3,6 +3,7 @@ package ch.ethz.jingyli.mobilegis.compassnavigate;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.DialogFragment;
 
 import android.Manifest;
 import android.content.Intent;
@@ -54,6 +55,8 @@ import com.microsoft.azure.spatialanchors.CloudSpatialAnchorSession;
 import com.microsoft.azure.spatialanchors.LocateAnchorStatus;
 import com.microsoft.azure.spatialanchors.SessionLogLevel;
 
+import org.w3c.dom.Text;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -71,15 +74,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+import ch.ethz.jingyli.mobilegis.compassnavigate.Fragment.HelpDialogFragment;
+import ch.ethz.jingyli.mobilegis.compassnavigate.Fragment.ShareDialogFragment;
 import ch.ethz.jingyli.mobilegis.compassnavigate.Model.AppAnchor;
 
 
-public class PlaceRewardsActivity extends AppCompatActivity {
+public class PlaceRewardsActivity extends AppCompatActivity
+        implements HelpDialogFragment.HelpDialogListener{
     // -------------- Variables to query feature from ArcGIS Feature Layer ---------------
     private ServiceFeatureTable trackServiceFeatureTable;
     private FeatureLayer trackFeatureLayer;
-    private ArrayList<String> rewardName;
-    private HashMap<String, Integer> rewardList;
 
     // --------------Variables for runtime checking---------------------------------------
     // boolean for checking if Google Play Services for AR if necessary.
@@ -91,16 +95,12 @@ public class PlaceRewardsActivity extends AppCompatActivity {
 
     //---------------------- Variables for placing object-----------------------------------
     // Variables for loading 3d models
-    private HashMap<String, Renderable> rewardsModel;
-    private HashMap<String, ViewRenderable> rewardsTitleModel;
-    private HashMap<String, Float> rewardModelScales;
+    private HashMap<String, Float> rewardModelScales; // Mapping: <rewards, modelScale>
     // Variables for scanning progress
     private float recommendedSessionProgress = 0f;
 
     // Variables for tap and place
     private ArFragment arFragment;
-    private AnchorNode anchorNode;
-    private String anchorName;
 
 
     //-------------------- Variables for spatial anchor ------------------------------------
@@ -110,19 +110,20 @@ public class PlaceRewardsActivity extends AppCompatActivity {
     private boolean sessionInited = false;
 
     private final Object syncTaps = new Object();
-    private HashMap<String, Boolean> rewardsTapExecuted;
+    private String tappedAnchorName;
 
     private Renderable nodeRenderable = null;
 
     // Variables for uploading spatial anchors
     private String anchorId;
-    private HashMap<String, String> rewardsAnchorId;
     private boolean scanningForUpload = false;
     private final Object syncSessionProgress = new Object();
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     // Variables for reload spatial anchors
-    private HashMap<String, AppAnchor> reloadRewards;  //<anchorId, rewardName>
+    private HashMap<String, AppAnchor> reloadRewards;  //<anchorId, appAnchor>
+    // Variables for new placing spatial anchors
+    private HashMap<String, AppAnchor> newPlaceRewards; //<rewardName, appAnchor>
 
     //----------------- Variables for UI Widgets ------------------------------------------
     private Button actionBtn;
@@ -130,8 +131,7 @@ public class PlaceRewardsActivity extends AppCompatActivity {
     private TextView statusText;
     private TextView scanProgressText;
     private Spinner spinner;
-    private Button reloadBtn;
-    private Button deleteBtn;
+    private Button helpBtn;
 
     //----------------- Variables for runtime flags ---------------------------------------
     private String currentStep = "";
@@ -140,11 +140,14 @@ public class PlaceRewardsActivity extends AppCompatActivity {
     private final String STEP_REMOVE_CURRENT_ANCHOR = "Remove All";
     private final String STEP_PLACE_NEW_ANCHOR = "Start to Place New Anchors";
     private final String STEP_FINISH_PLACE = "Finish and Save";
+    private final String STEP_CLEAR_RESTART = "Remove All and Restart";
     private ArrayList<CloudSpatialAnchor> currentCloudAnchors;
     private ArrayList<AnchorNode> currentAnchorNodes;
+    private ArrayList<String> currentLoadedModels;
 
     //----------------- Variables for I/O -------------------------------------------------
     private final String ANCHOR_FILE_PATH ="rewards_anchors.csv";
+    private HashMap<String, String> rewardToModelPath; // reward name : model path
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -162,25 +165,28 @@ public class PlaceRewardsActivity extends AppCompatActivity {
         actionBtn = (Button)findViewById(R.id.actionButton);
         backBtn = (Button)findViewById(R.id.backButton);
         spinner = (Spinner)findViewById(R.id.spinner);
-        reloadBtn = (Button)findViewById(R.id.readButton);
-        deleteBtn = (Button)findViewById(R.id.deleteButton);
+        helpBtn = (Button)findViewById(R.id.helpButton);
 
         // Initialize variables
-        rewardName = new ArrayList<>();
-        rewardsTapExecuted = new HashMap<>();
-        rewardsAnchorId = new HashMap<>();
-        rewardList = new HashMap<>();
-        rewardsModel = new HashMap<>();
-        rewardsTitleModel = new HashMap<>();
         currentCloudAnchors = new ArrayList<>();
         currentAnchorNodes = new ArrayList<>();
+        currentLoadedModels = new ArrayList<>();
+        reloadRewards = new HashMap<>();
+        newPlaceRewards = new HashMap<>();
+
+        // Mapping of rewards
         rewardModelScales = new HashMap<>();
         rewardModelScales.put(getString(R.string.apple), 0.001f);
         rewardModelScales.put(getString(R.string.banana), 0.005f);
         rewardModelScales.put(getString(R.string.peach), 0.03f);
         rewardModelScales.put(getString(R.string.icecream), 0.05f);
         rewardModelScales.put(getString(R.string.watermelon), 1.0f);
-//        queryUserFeatureLayer();
+        rewardToModelPath = new HashMap<>();
+        rewardToModelPath.put(getString(R.string.apple), getString(R.string.model_apple));
+        rewardToModelPath.put(getString(R.string.banana), getString(R.string.model_banana));
+        rewardToModelPath.put(getString(R.string.peach), getString(R.string.model_peach));
+        rewardToModelPath.put(getString(R.string.icecream), getString(R.string.model_icecream));
+        rewardToModelPath.put(getString(R.string.watermelon), getString(R.string.model_watermelon));
 
         // Enable AR-related functionality on ARCore supported devices only.
         checkARCoreSupported();
@@ -209,7 +215,6 @@ public class PlaceRewardsActivity extends AppCompatActivity {
              @Override
              public void onClick(View view) {
                  takeActions();
-//                 saveRewardAnchorRecords();
              }
         });
         // Back to main activity
@@ -217,6 +222,13 @@ public class PlaceRewardsActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 backToMainActivity();
+            }
+        });
+        // Get help
+        helpBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                askForHelp();
             }
         });
         // Spinner
@@ -229,32 +241,54 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                 if(selectedReward.equals(getString(R.string.ar_spinner_default))){
                     return;
                 }
-                if(rewardsTapExecuted.get(selectedReward)){
+                AppAnchor myAnchor = newPlaceRewards.get(selectedReward);
+                if(myAnchor.isUploaded()){
                     statusText.setText(String.format("Successfully uploaded %s!", selectedReward));
+                }
+                if(myAnchor.getTapExecutedFlag() && (!myAnchor.isUploaded())){
+                    statusText.setText(String.format("Upload failed for %s, please relocate your reward!", selectedReward));
+                    if(myAnchor.getAnchorNode()!=null){
+                        AnchorNode anchorNode = myAnchor.getAnchorNode();
+                        anchorNode.getAnchor().detach();
+                        anchorNode.setParent(null);
+                        anchorNode = null;
+                    }
+                    myAnchor.setTapExecutedFlag(false);
                 }
 
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> adapterView) {
-
             }
         });
 
-        reloadBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                reloadRewardsAnchorsRecords();
-            }
-        });
+    }
+    private void askForHelp(){
+        // Open a dialog to ask if user is willing to ask for help
+        DialogFragment dialog = new HelpDialogFragment();
+        dialog.show(getSupportFragmentManager(), getString(R.string.FRAGMENT_TAG_HELP_DIALOG));
+    }
 
-        deleteBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                deleteCurrentSpatialAnchor(true);
-            }
-        });
+    @Override
+    public void onDialogPositiveClick(DialogFragment dialog) {
+        assert dialog.getTag() != null;
+        if (dialog.getTag().equals(getString(R.string.FRAGMENT_TAG_HELP_DIALOG))){
+            // Trigger getting help intent
+            String helpText = getString(R.string.GET_HELP_TEXT);
+            Intent sendIntent = new Intent();
+            sendIntent.setAction(Intent.ACTION_SEND);
+            sendIntent.putExtra(Intent.EXTRA_TEXT, helpText);
+            sendIntent.setType("text/plain");
 
+            Intent shareIntent = Intent.createChooser(sendIntent, null);
+            startActivity(shareIntent);
+        }
+    }
+
+    @Override
+    public void onDialogNegativeClick(DialogFragment dialog) {
+        assert dialog.getTag() != null;
     }
 
 
@@ -288,11 +322,15 @@ public class PlaceRewardsActivity extends AppCompatActivity {
         this.actionBtn.setText(stepName);
     }
 
+    /**
+     * Switch between different steps
+     */
     private void takeActions(){
         switch (currentStep){
             case STEP_START_APP:
                 break;
             case STEP_LOAD_FROM_CLOUD:
+                Toast.makeText(this,"Loading previously located anchors...",Toast.LENGTH_LONG).show();
                 reloadRewardsAnchorsRecords();
                 break;
             case STEP_REMOVE_CURRENT_ANCHOR:
@@ -300,24 +338,34 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                 updateCurrentStep(STEP_PLACE_NEW_ANCHOR);
                 break;
             case STEP_PLACE_NEW_ANCHOR:
+                Toast.makeText(this,"Loading your rewards from map server...",Toast.LENGTH_LONG).show();
                 queryUserFeatureLayer();
                 updateCurrentStep(STEP_FINISH_PLACE);
                 break;
             case STEP_FINISH_PLACE:
                 saveRewardAnchorRecords();
                 break;
+            case STEP_CLEAR_RESTART:
+                clearNewPlacing();
+                checkPreviousRecord();
+                updateCurrentStep(STEP_LOAD_FROM_CLOUD);
+                break;
         }
     }
 
+    /**
+     * Reload rewards anchor record from cloud
+     */
     private void reloadRewardsAnchorsRecords(){
         // Add reloaded rewards in reward lists
-        for(String reward : reloadRewards.keySet()){
-            rewardList.put(reward, reloadRewards.get(reward).getCount());
+        for(String rewardID : reloadRewards.keySet()){
+            AppAnchor myAnchor = reloadRewards.get(rewardID);
+            String rewardName = myAnchor.getAnchorName();
+            myAnchor.setModelPath(rewardToModelPath.get(rewardName));
+            myAnchor.setRenderScale(rewardModelScales.get(rewardName));
+            loadModels(myAnchor, reloadRewards.size(), false);
         }
-        // Load 3D Models
-        for(String reward : reloadRewards.keySet()){
 
-        }
         // Relocate all previously placed anchors from cloud
         String[] anchorIdList = reloadRewards.keySet().toArray(new String[0]);
         initializeSession();
@@ -326,12 +374,38 @@ public class PlaceRewardsActivity extends AppCompatActivity {
         cloudSession.createWatcher(criteria);
     }
 
+    /**
+     * Clear newly added anchors in the frame
+     */
+    private void clearNewPlacing(){
+        this.currentLoadedModels = new ArrayList<>();
+        if(this.currentAnchorNodes.isEmpty()){
+            return;
+        }
+        // Delete anchor from ar scene
+        for(AnchorNode anchorNode : this.currentAnchorNodes){
+            if(anchorNode!=null){
+                anchorNode.getAnchor().detach();
+                anchorNode.setParent(null);
+                anchorNode = null;
+            }
+        }
+        this.currentAnchorNodes = new ArrayList<>();
+        this.newPlaceRewards = new HashMap<>();
+
+        statusText.setText("");
+        scanProgressText.setText("");
+        clearSpinner();
+    }
+
+
 
     /**
      * Delete spatial anchors in current ar scene
      * @param saved true if they are also saved in local storage, delete them
      */
     private void deleteCurrentSpatialAnchor(boolean saved){
+        this.currentLoadedModels = new ArrayList<>();
         if(this.currentCloudAnchors.isEmpty() || this.currentAnchorNodes.isEmpty()){
             return;
         }
@@ -359,16 +433,21 @@ public class PlaceRewardsActivity extends AppCompatActivity {
      */
     private void saveRewardAnchorRecords(){
         // Wait until all rewards are marked and spatial anchors uploaded
-        if(this.rewardsAnchorId.size()!=this.rewardList.size()){
-            Toast.makeText(this, "There are still some rewards not located.", Toast.LENGTH_LONG).show();
-            return;
+        for(String reward : newPlaceRewards.keySet()){
+            AppAnchor myAnchor = newPlaceRewards.get(reward);
+            if (!myAnchor.isUploaded()){
+                Toast.makeText(this, "There are still some rewards not located.", Toast.LENGTH_LONG).show();
+                return;
+            }
         }
         // Save rewards and anchor IDs locally
         String saveString = "";
-        for(String reward : this.rewardsAnchorId.keySet()){
-            saveString += String.format("%s,%s,%d\n", reward, this.rewardsAnchorId.get(reward), this.rewardList.get(reward));
+        for(String reward : this.newPlaceRewards.keySet()){
+            AppAnchor myAnchor = newPlaceRewards.get(reward);
+            saveString += String.format("%s,%s,%d\n", reward, myAnchor.getAnchorID(), myAnchor.getCount());
         }
         writeToCSV(saveString, ANCHOR_FILE_PATH);
+        updateCurrentStep(STEP_CLEAR_RESTART);
     }
 
 
@@ -376,8 +455,8 @@ public class PlaceRewardsActivity extends AppCompatActivity {
      * Download rewards of a specific user from ArcGIS Feature Layer
      */
     private void queryUserFeatureLayer(){
-        Toast.makeText(this,"Loading your rewards from the server...", Toast.LENGTH_SHORT).show();
         // Add all possible reward names
+        ArrayList<String> rewardName = new ArrayList<>();
         rewardName.add(getString(R.string.apple));
         rewardName.add(getString(R.string.banana));
         rewardName.add(getString(R.string.icecream));
@@ -387,9 +466,9 @@ public class PlaceRewardsActivity extends AppCompatActivity {
 
         trackServiceFeatureTable = new ServiceFeatureTable(getString(R.string.URL_ROUND_TRIP_TRACK));
         trackFeatureLayer = new FeatureLayer(trackServiceFeatureTable);
-//        String userid = getString(R.string.user_id);
+        String userid = getString(R.string.user_id);
         //TODO: Change back user id
-        String userid = "11";
+//        String userid = "11";
         String queryClause = "user_id = " + userid + " AND reward IN ('"+queryRewardSet+"')";
 
         // create objects required to do a selection with a query
@@ -417,40 +496,25 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                             rewards.stream().collect(Collectors.groupingBy(e -> e, Collectors.counting()));
                     // Initialize reward storage information
                     for (String reward : counts.keySet()){
-                        rewardList.put(reward, counts.get(reward).intValue());
-                        rewardsTapExecuted.put(reward, false);
+                        AppAnchor myAnchor = new AppAnchor(reward);
+                        myAnchor.setCount(counts.get(reward).intValue());
+                        myAnchor.setModelPath(rewardToModelPath.get(reward));
+                        myAnchor.setRenderScale(rewardModelScales.get(reward));
+                        newPlaceRewards.put(reward, myAnchor);
                     }
                     // Load 3D models of rewards
                     for (String reward : counts.keySet()){
-                        switch (reward){
-                            case "Apple":
-                                loadModels(getString(R.string.model_apple), getString(R.string.apple));
-                                break;
-                            case "Banana":
-                                loadModels(getString(R.string.model_banana),getString(R.string.banana));
-                                break;
-                            case "Ice Cream":
-                                loadModels(getString(R.string.model_icecream),getString(R.string.icecream));
-                                break;
-                            case "Peach":
-                                loadModels(getString(R.string.model_peach),getString(R.string.peach));
-                                break;
-                            case "Watermelon":
-                                loadModels(getString(R.string.model_watermelon),getString(R.string.watermelon));
-                                break;
-                            default:
-                                Log.e("ASA QueryFeatureTable","Got unexpected value when loading 3D Models : "+reward);
-                        }
+                        loadModels(newPlaceRewards.get(reward), newPlaceRewards.size(), true);
 
                     }
                     Log.d("ASA QueryFeatureTable", "Rewards downloaded: "+String.join(", ", rewards));
                 }else{
-                    // TODO: UI No rewards from feature table
+                    // UI No rewards from feature table
                     Toast.makeText(this, "There is no reward for: "+queryClause, Toast.LENGTH_LONG).show();
                 }
             } catch (Exception e) {
                 String error = "Feature search failed for: " + queryClause + ". Error: " + e.getMessage();
-                // TODO: UI ERROR in get rewards from feature table
+                // UI ERROR in get rewards from feature table
                 Toast.makeText(this, error, Toast.LENGTH_LONG).show();
                 Log.e("ASA QueryFeatureTable", error);
             }
@@ -458,71 +522,61 @@ public class PlaceRewardsActivity extends AppCompatActivity {
     }
 
     /**
-     *
+     * When user tap the frame, if app is in adding new anchor process, then add new anchor to the frame and upload
      * @param hitResult
      * @param plane
      * @param motionEvent
      */
     protected void handleTap(HitResult hitResult, Plane plane, MotionEvent motionEvent) {
         Log.d("ASA HandleTap","Handle Tapped!");
+        if(this.currentStep!=STEP_FINISH_PLACE){
+            return;
+        }
+        if(spinner==null){
+            return;
+        }
         if (spinner.getSelectedItem()==null){
             return;
         }
         String modelName = spinner.getSelectedItem().toString();
-        this.anchorName = modelName;
         if(modelName.equals(getString(R.string.ar_spinner_default))){
             return;
         }
         // ----------- Initialize spatial anchor cloud session --------------------------
+        AppAnchor myAnchor = this.newPlaceRewards.get(modelName);
+        this.tappedAnchorName = modelName;
         synchronized (this.syncTaps) {
-            if (this.rewardsTapExecuted.get(modelName)) {
+            if (myAnchor.getTapExecutedFlag()) {
                 return;
             }
-            this.rewardsTapExecuted.put(modelName, true);
+            myAnchor.setTapExecutedFlag(true);
         }
-
-//        //TODO CHECK Locate function
-//        if (this.anchorId != null) {
-//            this.anchorNode.getAnchor().detach();
-//            this.anchorNode.setParent(null);
-//            this.anchorNode = null;
-//            initializeSession();
-//            AnchorLocateCriteria criteria = new AnchorLocateCriteria();
-//            criteria.setIdentifiers(new String[]{this.anchorId});
-//            cloudSession.createWatcher(criteria);
-//            return;
-//        }
 
         initializeSession();
 
         // ------------- Draw 3D Model at the place of tap -----------------------------
 
-        this.anchorNode = new AnchorNode();
-        this.anchorNode.setAnchor(hitResult.createAnchor());
-        this.anchorNode.setParent(arFragment.getArSceneView().getScene());
-        this.currentAnchorNodes.add(this.anchorNode);
-        draw3DModelinScene(this.anchorNode, modelName);
+        AnchorNode anchorNode = new AnchorNode();
+        anchorNode.setAnchor(hitResult.createAnchor());
+        anchorNode.setParent(arFragment.getArSceneView().getScene());
+        this.currentAnchorNodes.add(anchorNode);
+        myAnchor.setAnchorNode(anchorNode);
+        myAnchor.drawAnchorModelinScene(arFragment);
 
         // ------------ Upload the spatial anchor ----------------------------------------
         // Newly added for spatial anchor
         CloudSpatialAnchor cloudAnchor = new CloudSpatialAnchor();
-        cloudAnchor.setLocalAnchor(this.anchorNode.getAnchor());
+        cloudAnchor.setLocalAnchor(anchorNode.getAnchor());
         uploadCloudAnchorAsync(cloudAnchor)
                 .thenAccept(id -> {
-                    this.rewardsAnchorId.put(modelName, id);
-                    this.anchorId = id;
-                    Log.i("ASAInfo", String.format("Cloud Anchor created: %s, %s", modelName, this.rewardsAnchorId.get(modelName)));
-                    //TODO: ui for finished uploading
+                    myAnchor.setAnchorID(id);
+                    myAnchor.setUploaded(true);
+                    Log.i("ASAInfo", String.format("Cloud Anchor created: %s, %s", myAnchor.getAnchorName(), myAnchor.getAnchorID()));
+                    //ui for finished uploading
                     runOnUiThread(() -> {
                         scanProgressText.setText("");
                         statusText.setText(String.format("Successfully uploaded %s!", modelName));
                     });
-
-//                    //TODO: CHECK RELOCATE
-//                    synchronized (this.syncTaps) {
-//                        this.rewardsTapExecuted.put(modelName,false);
-//                    }
-
                 });
 
     }
@@ -553,13 +607,13 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                 }
                 //TODO: ui for once collected enough frames
                 runOnUiThread(() -> {
-                    scanProgressText.setText(String.format("%s : Scanning finished!", this.anchorName));
-                    statusText.setText(String.format("Now uploading %s...", this.anchorName));
+                    scanProgressText.setText(String.format("%s : Scanning finished!", this.tappedAnchorName));
+                    statusText.setText(String.format("Now uploading %s...", this.tappedAnchorName));
                 });
                 this.cloudSession.createAnchorAsync(anchor).get();
             } catch (InterruptedException | ExecutionException e) {
                 Log.e("ASAError Upload", e.toString());
-                Toast.makeText(this, e.toString(), Toast.LENGTH_LONG).show();
+                statusText.setText("An error occurred in uploading. Please relocate the anchor!");
 
                 // Remove the anchor node drawn before
                 AnchorNode anchorNodeToDelete = this.currentAnchorNodes.get(this.currentAnchorNodes.size()-1);
@@ -569,9 +623,9 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                 this.currentAnchorNodes.remove(this.currentAnchorNodes.size()-1);
                 // Reactivate tap execution
                 synchronized (this.syncTaps) {
-                        this.rewardsTapExecuted.put(this.anchorName, false);
+                        this.newPlaceRewards.get(this.tappedAnchorName).setTapExecutedFlag(false);
                 }
-                throw new RuntimeException(e);
+//                throw new RuntimeException(e);
             }
         }, executorService).thenApply(ignore -> anchor.getIdentifier());
     }
@@ -608,7 +662,7 @@ public class PlaceRewardsActivity extends AppCompatActivity {
             synchronized (this.syncSessionProgress) {
                 this.recommendedSessionProgress =
                         args.getStatus().getRecommendedForCreateProgress();
-                Log.i("ASAInfo", String.format("Scanning progress: %f",
+                Log.i("ProgressInfo", String.format("Scanning progress: %f",
                         this.recommendedSessionProgress));
                 if (!this.scanningForUpload)
                 {
@@ -622,14 +676,14 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                     if(progressNum>100){
                         progressNum = 100;
                     }
-                    //TODO: UI for showing progress during collecting frames
+                    // UI for showing progress during collecting frames
                     scanProgressText.setText(String.format("Session progress: %d%%",
                             progressNum));
                 }
             });
         });
 
-        // TODO: When the spatial anchor we created is located
+        // When the spatial anchor we saved in cloud is located
         this.cloudSession.addAnchorLocatedListener(args -> {
             Log.d("ASA LocatedListener","Hi");
             try{
@@ -643,27 +697,29 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                             runOnUiThread(()->{
                                 CloudSpatialAnchor foundAnchor = args.getAnchor();
                                 String anchorId = foundAnchor.getIdentifier();
-                                String anchorName = reloadRewards.get(anchorId).getAnchorName();
-                                // TODO: TEST RELOAD
-                                this.anchorNode = new AnchorNode();
-                                this.anchorNode.setAnchor(foundAnchor.getLocalAnchor());
+                                AppAnchor myAnchor = reloadRewards.get(anchorId);
+                                String anchorName = myAnchor.getAnchorName();
+
+                                AnchorNode anchorNode =  new AnchorNode();
+                                anchorNode.setAnchor(foundAnchor.getLocalAnchor());
                                 this.currentCloudAnchors.add(foundAnchor);
-                                this.currentAnchorNodes.add(this.anchorNode);
+                                this.currentAnchorNodes.add(anchorNode);
+                                myAnchor.setAnchorNode(anchorNode);
+
                                 Log.d("ASALocated", "Spatial Anchor Located : "+anchorId+","+anchorName);
-                                draw3DModelinScene(this.anchorNode, anchorName);
-                                MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.GREEN))
+                                myAnchor.drawAnchorModelinScene(arFragment);
+                                MaterialFactory.makeOpaqueWithColor(this, new Color(android.graphics.Color.WHITE))
                                         .thenAccept(greenMaterial -> {
-                                            this.nodeRenderable = ShapeFactory.makeSphere(0.1f, new Vector3(0.0f, 0.15f, 0.0f), greenMaterial);
-                                            this.anchorNode.setRenderable(nodeRenderable);
-                                            this.anchorNode.setParent(arFragment.getArSceneView().getScene());
-//                                            this.anchorId = null;
-//                                            synchronized (this.syncTaps) {
-//                                                this.rewardsTapExecuted.put(anchorName, false);
-//                                            }
+                                            this.nodeRenderable = ShapeFactory.makeSphere(0.01f, new Vector3(0.0f, 0.0f, 0.0f), greenMaterial);
+                                            anchorNode.setRenderable(nodeRenderable);
+                                            anchorNode.setParent(arFragment.getArSceneView().getScene());
                                         });
                                 if(this.currentAnchorNodes.size()==this.reloadRewards.size()){
                                     // Finished loading
                                     updateCurrentStep(STEP_REMOVE_CURRENT_ANCHOR);
+                                }else{
+                                    int left = this.reloadRewards.size() - this.currentAnchorNodes.size();
+                                    Toast.makeText(this, String.format("Successfully find %s, %d left to be found!", myAnchor.getAnchorName(), left),Toast.LENGTH_SHORT).show();
                                 }
                             });
                             break;
@@ -685,60 +741,32 @@ public class PlaceRewardsActivity extends AppCompatActivity {
     }
 
 
-    /**
-     * Draw the 3D Model to anchor node
-     * @param anchorNode
-     * @param modelName
-     */
-    private void draw3DModelinScene(AnchorNode anchorNode, String modelName){
-        // Get model by spinner selection
-        Renderable model = rewardsModel.get(modelName);
-        ViewRenderable titleModel = rewardsTitleModel.get(modelName);
-        float maxScale = rewardModelScales.get(modelName);
-        Log.d("ASA Draw3DModel", modelName);
-        // Draw a 3D object with glFT file type
-        if ( model == null  ) {
-            Toast.makeText(this, "Loading...", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        // Create the transformable model and add it to the anchor.
-        TransformableNode transformableNodemodel = new TransformableNode(arFragment.getTransformationSystem());
-        transformableNodemodel.getScaleController().setMaxScale(maxScale);
-        transformableNodemodel.getScaleController().setMinScale((float) (maxScale*0.9));
 
-        transformableNodemodel.setParent(anchorNode);
-        transformableNodemodel.setRenderable(model);
-        transformableNodemodel.getRenderableInstance().animate(true).start();
-        transformableNodemodel.select();
-        // Title of the model
-        Node tigerTitleNode = new Node();
-        tigerTitleNode.setParent(transformableNodemodel);
-        tigerTitleNode.setEnabled(false);
-        tigerTitleNode.setLocalPosition(new Vector3(0.0f, 1.0f, 0.0f));
-        tigerTitleNode.setRenderable(titleModel);
-        tigerTitleNode.setEnabled(true);
-    }
     /**
      * A function to load the 3D models
      * For local 3D models, only .glb or .gltf (2.0) can be loaded
      */
-    public void loadModels(String modelPath, String modelName) {
+    public void loadModels(AppAnchor myAnchor, int fullLoadedSize, boolean setUpSpinnerFlag) {
         WeakReference<PlaceRewardsActivity> weakActivity = new WeakReference<>(this);
 
         ModelRenderable.builder()
-                .setSource(this, Uri.parse(modelPath))
+                .setSource(this, Uri.parse(myAnchor.getModelPath()))
                 .setIsFilamentGltf(true)
                 .build()
                 .thenAccept(model -> {
+                    myAnchor.setModel(model);
                     PlaceRewardsActivity activity = weakActivity.get();
                     if (activity != null) {
-                        activity.rewardsModel.put(modelName, model);
+                        activity.currentLoadedModels.add(myAnchor.getAnchorName());
                         // Check if all required models are loaded
-                        if(activity.rewardsModel.size()==activity.rewardList.size()){
+                        if(activity.currentLoadedModels.size()==fullLoadedSize){
                             // TODO: UI successfully loaded all required 3D models
-                            Toast.makeText(this, "Load model successfully", Toast.LENGTH_LONG).show();
+//                            Toast.makeText(this, "Load model successfully", Toast.LENGTH_LONG).show();
+                            statusText.setText("");
                             Log.d("ASA LoadModel","Models loaded!");
-                            setUpSpinner();
+                            if(setUpSpinnerFlag){
+                                setUpSpinner();
+                            }
                         }
                     }
                 })
@@ -751,9 +779,12 @@ public class PlaceRewardsActivity extends AppCompatActivity {
                 .setView(this, R.layout.view_reward_card)
                 .build()
                 .thenAccept(viewRenderable -> {
-                    PlaceRewardsActivity activity = weakActivity.get();
-                    if (activity != null) {
-                        activity.rewardsTitleModel.put(modelName, viewRenderable);}
+                    TextView textView = viewRenderable.getView().findViewById(R.id.titleText);
+                    textView.setText(String.format("%s : %d", myAnchor.getAnchorName(), myAnchor.getCount()));
+                    myAnchor.setTitleModel(viewRenderable);
+//                    PlaceRewardsActivity activity = weakActivity.get();
+//                    if (activity != null) {
+//                        activity.rewardsTitleModel.put(myAnchor.getAnchorName(), viewRenderable);}
                 })
                 .exceptionally(throwable -> {
                     // TODO: UI cannot load 3D Model Title
@@ -767,10 +798,10 @@ public class PlaceRewardsActivity extends AppCompatActivity {
      * Create spinner. Choices are the user ids queried from Service Feature Table
      */
     private void setUpSpinner(){
-        String[] allChoices = new String[rewardList.size()+1];
+        String[] allChoices = new String[newPlaceRewards.size()+1];
         allChoices[0] = getString(R.string.ar_spinner_default);
         int i = 1;
-        for(String reward : rewardList.keySet()){
+        for(String reward : newPlaceRewards.keySet()){
             allChoices[i] = reward;
             i++;
         }
@@ -780,6 +811,12 @@ public class PlaceRewardsActivity extends AppCompatActivity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         // apply the adapter to the spinner
         spinner.setAdapter(adapter);
+        spinner.setVisibility(View.VISIBLE);
+    }
+
+
+    private void clearSpinner(){
+        spinner.setVisibility(View.GONE);
     }
 
     /**
@@ -847,7 +884,7 @@ public class PlaceRewardsActivity extends AppCompatActivity {
         }else{
             Log.e("ASA FileLog", "SD card not mounted");
         }
-        //TODO: UI Cannot find local file
+        // UI Cannot find local file
         Toast.makeText(this, getString(R.string.record_not_exist),Toast.LENGTH_LONG).show();
         return reward_to_anchor;
     }

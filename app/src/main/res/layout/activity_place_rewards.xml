@@ -73,20 +73,15 @@
             android:textAllCaps="true" />
 
         <Button
-            android:id="@+id/readButton"
+            android:id="@+id/helpButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="100dp"
+            android:layout_alignParentTop="true"
             android:layout_alignParentEnd="true"
-            android:layout_above="@+id/spinner"
-            android:text="Reload Anchors"
+            android:text="HELP"
             android:textAllCaps="true" />
-        <Button
-            android:id="@+id/deleteButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:layout_above="@+id/readButton"
-            android:text="Delete Anchors"
-            android:textAllCaps="true" />
+
+
     </RelativeLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

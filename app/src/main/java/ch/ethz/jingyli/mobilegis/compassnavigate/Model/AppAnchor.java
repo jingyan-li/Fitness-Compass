@@ -15,6 +15,8 @@ public class AppAnchor {
     private String anchorID;
     private int count;
     // Flag if it's successfully uploaded to cloud
+    private boolean tapExecuted = false;
+
     private boolean uploaded = false;
 
     // anchor Node in ar frame
@@ -36,6 +38,21 @@ public class AppAnchor {
         this.count = count;
     }
 
+    public boolean isUploaded() {
+        return uploaded;
+    }
+    public void setUploaded(boolean uploaded) {
+        this.uploaded = uploaded;
+    }
+    public void setTapExecutedFlag(boolean flag){
+        this.tapExecuted = flag;
+    }
+
+    public boolean getTapExecutedFlag(){
+        return this.tapExecuted;
+    }
+
+
     public boolean drawAnchorModelinScene(ArFragment arFragment){
         if(this.model==null || this.titleModel==null || this.anchorNode==null){
             return false;
@@ -44,6 +61,10 @@ public class AppAnchor {
         TransformableNode transformableNodemodel = new TransformableNode(arFragment.getTransformationSystem());
         transformableNodemodel.getScaleController().setMaxScale(this.renderScale);
         transformableNodemodel.getScaleController().setMinScale((float) (this.renderScale*0.9));
+        if(this.anchorName.equals("Watermelon")){
+            Log.d("ASALocated", "Watermelon Local position: "+transformableNodemodel.getLocalPosition().toString());
+            transformableNodemodel.setLocalPosition(new Vector3(-0.1f,-1f,-0.8f));
+        }
 
         transformableNodemodel.setParent(this.anchorNode);
         transformableNodemodel.setRenderable(this.model);
@@ -53,7 +74,25 @@ public class AppAnchor {
         Node tigerTitleNode = new Node();
         tigerTitleNode.setParent(transformableNodemodel);
         tigerTitleNode.setEnabled(false);
-        tigerTitleNode.setLocalPosition(new Vector3(0.0f, 1.0f, 0.0f));
+        Log.d("ASALocated", "Local scale: "+tigerTitleNode.getLocalScale().toString());
+        tigerTitleNode.setLocalScale(new Vector3(1.0f/this.renderScale,1.0f/this.renderScale,1.0f/this.renderScale));
+        switch (this.anchorName){
+            case "Watermelon":
+                tigerTitleNode.setLocalPosition(new Vector3(0.0f, 1.0f, 1.0f));
+                break;
+            case "Peach":
+                tigerTitleNode.setLocalPosition(new Vector3(0.0f, 4.0f, 4.0f));
+                break;
+            case "Apple":
+                tigerTitleNode.setLocalPosition(new Vector3(0.0f, 110.0f, 5.0f));
+                break;
+            case "Banana":
+                tigerTitleNode.setLocalPosition(new Vector3(0.0f, 50.0f, 6.0f));
+                break;
+            default:
+                tigerTitleNode.setLocalPosition(new Vector3(0.0f, 1.0f, 2.0f));
+        }
+
         tigerTitleNode.setRenderable(this.titleModel);
         tigerTitleNode.setEnabled(true);
 
