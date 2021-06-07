@@ -184,6 +184,7 @@ public class MainActivity extends AppCompatActivity
     private Spinner checkPointSpinner;
     private Button startBtn;
     private Button cancelBtn;
+    private Button arBtn;
     //ASN2: Add button for sharing and opening map activity;
     private FloatingActionButton shareBtn;
     private FloatingActionButton mapBtn;
@@ -254,6 +255,7 @@ public class MainActivity extends AppCompatActivity
         findViewById(R.id.dummy_button).setOnTouchListener(mDelayHideTouchListener);
 
         // Initiate widgets
+        arBtn = (Button) findViewById(R.id.ar_button);
         checkPointSpinner = (Spinner) findViewById(R.id.checkpoint_spinner);
         startBtn = (Button) findViewById(R.id.start_button);
         cancelBtn = (Button) findViewById(R.id.cancel_button);
@@ -338,19 +340,27 @@ public class MainActivity extends AppCompatActivity
 
             }
         });
-        //TODO: ASN2: Share button onClick
+        //ASN2: Share button onClick
         shareBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 shareRecordOperations();
             }
         });
-        //TODO: ASN2: Map button onClick
+        //ASN2: Map button onClick
         mapBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // Trigger map acitivity
                 trigger_show_feature_activity();
+            }
+        });
+        //ASN3: Add AR Button onClick
+        arBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                // Trigger ar activity
+                trigger_ar_rewards_activity();
             }
         });
 
@@ -405,7 +415,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onBackPressed() {
-        //TODO: ASN2: Ask for sharing when pressing back button to quit app
+        //ASN2: Ask for sharing when pressing back button to quit app
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setMessage(getString(R.string.ask_for_share_record_before_exit))
                 .setCancelable(false)
@@ -866,8 +876,8 @@ public class MainActivity extends AppCompatActivity
                     reward);
 
             writeToCSV(line, REWARD_FILE_PATH);
-            //TODO: ASN2: Trip finished dialog + ask to upload trajectory to server
 
+            //ASN2: Trip finished dialog + ask to upload trajectory to server
             // Get track ID
             SharedPreferences sharedPreferences = this.getSharedPreferences(getString(R.string.SHARED_PREFERENCE_DATA),this.MODE_PRIVATE);
             int TRACK_ID = sharedPreferences.getInt(getString(R.string.SHARED_PREFERENCE_KEY),0);
@@ -936,7 +946,7 @@ public class MainActivity extends AppCompatActivity
      * Read the user records, create intents to share records
      */
     public void shareToApps(){
-        //TODO: ASN2: Trigger share intent
+        //ASN2: Trigger share intent
         String record_to_share = readCSV(REWARD_FILE_PATH);
         if ("".equals(record_to_share)){
             Toast.makeText(this, getString(R.string.no_record_to_share),Toast.LENGTH_LONG).show();
@@ -965,7 +975,7 @@ public class MainActivity extends AppCompatActivity
      * When user clicked yes in upload trajectory dialog, start UploadTrack activity and send extras
      */
     private void trigger_upload_traj_activity(){
-        //TODO ASN2: TRIGGER UPLOAD TRAJ ACTIVITY
+        //ASN2: TRIGGER UPLOAD TRAJ ACTIVITY
         Intent trigger_upload_traj = new Intent(this, UploadTrackActivity.class);
         trigger_upload_traj.putExtra(getString(R.string.EXTRA_TRACK_ATTRIBUTE),trackAttributes);
         trigger_upload_traj.putExtra(getString(R.string.EXTRA_POINT_ATTRIBUTE), pointAttributes);
@@ -979,6 +989,14 @@ public class MainActivity extends AppCompatActivity
      */
     private void trigger_show_feature_activity(){
         Intent intent = new Intent(this, TrackReviewActivity.class);
+        startActivity(intent);
+    }
+
+    /**
+     * Trigger place and locate rewards activity
+     */
+    private void trigger_ar_rewards_activity(){
+        Intent intent = new Intent(this, PlaceRewardsActivity.class);
         startActivity(intent);
     }
 

@@ -251,31 +251,28 @@
                 android:id="@+id/start_button"
                 android:layout_width="139dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="35dp"
-                android:layout_marginEnd="35dp"
+                android:layout_marginStart="40dp"
                 android:layout_marginBottom="50dp"
                 android:text="@string/start_button"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/cancel_button"
                 app:layout_constraintStart_toStartOf="parent" />
 
             <Button
                 android:id="@+id/cancel_button"
                 android:layout_width="134dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="35dp"
+                android:layout_marginEnd="40dp"
                 android:layout_marginBottom="50dp"
                 android:text="Stop the trip"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                />
+                app:layout_constraintEnd_toEndOf="parent" />
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
                 android:id="@+id/share_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="35dp"
-                android:layout_marginBottom="385dp"
+                android:layout_marginBottom="120dp"
                 android:backgroundTint="@color/teal_200"
                 android:clickable="true"
                 app:backgroundTint="#7AC4AC"
@@ -295,6 +292,16 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:srcCompat="@android:drawable/ic_dialog_map" />
+
+            <Button
+                android:id="@+id/ar_button"
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="20dp"
+                android:layout_marginBottom="385dp"
+                android:text="AR Rewards"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 

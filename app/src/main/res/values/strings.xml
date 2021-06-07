@@ -66,4 +66,21 @@
 
     <string name="Track_Review_Spinner_All">All Records</string>
     <string name="Track_Review_Spinner_User">User\t</string>
+    <!--    Rewards -->
+    <string name="apple">Apple</string>
+    <string name="banana">Banana</string>
+    <string name="icecream">Ice Cream</string>
+    <string name="peach">Peach</string>
+    <string name="watermelon">Watermelon</string>
+    <!--    AR Related -->
+    <string name="toast_camera_permission">Camera permission is needed to run this application</string>
+    <string name="accountID">f4ceeb34-626b-4a00-b061-37f819573ace</string>
+    <string name="accountKey">RKf0612OpvliBz3mzkZH3pacDKbkojGjjSCoxGC/fYI=</string>
+    <string name="accountDomain">northeurope.mixedreality.azure.com</string>
+    <string name="model_apple">models/Apple.gltf</string>
+    <string name="model_banana">models/Banana.gltf</string>
+    <string name="model_icecream">models/Ice_Cream.gltf</string>
+    <string name="model_peach">models/Peach.gltf</string>
+    <string name="model_watermelon">models/watermelon.gltf</string>
+    <string name="ar_spinner_default">Select a reward to place</string>
 </resources>

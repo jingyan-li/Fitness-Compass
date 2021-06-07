@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".PlaceRewardsActivity">
+
+    <androidx.fragment.app.FragmentContainerView
+        android:name="com.google.ar.sceneform.ux.ArFragment"
+        android:id="@+id/ux_fragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" >
+
+    </androidx.fragment.app.FragmentContainerView>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="20dp">
+
+        <Spinner
+            android:id="@+id/spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/purple_200"
+            android:dropDownSelector="@color/design_default_color_background"
+            android:popupBackground="@color/black_overlay"
+            android:spinnerMode="dialog"
+            android:textColor="@color/white"
+            android:layout_above="@+id/statusText"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/scanProgressText"
+            android:layout_centerHorizontal="true"
+            android:background="#9C27B0"
+            android:textColor="@color/white"
+            android:text="" />
+
+        <TextView
+            android:id="@+id/scanProgressText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/actionButton"
+            android:layout_centerHorizontal="true"
+            android:text=""
+            android:background="#9C27B0"
+            android:textColor="@color/white"
+            android:layout_marginTop="10dp"
+             />
+
+        <Button
+            android:id="@+id/actionButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:text=""
+            android:textAllCaps="true" />
+
+        <Button
+            android:id="@+id/backButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="100dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
+            android:text="BACK"
+            android:textAllCaps="true" />
+
+        <Button
+            android:id="@+id/readButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_above="@+id/spinner"
+            android:text="Reload Anchors"
+            android:textAllCaps="true" />
+        <Button
+            android:id="@+id/deleteButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_above="@+id/readButton"
+            android:text="Delete Anchors"
+            android:textAllCaps="true" />
+    </RelativeLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

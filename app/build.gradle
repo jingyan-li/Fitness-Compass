@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "ch.ethz.jingyli.mobilegis.compassnavigate"
-        minSdkVersion 23
+        minSdkVersion 26
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
@@ -41,5 +41,12 @@ dependencies {
     implementation 'com.github.capur16:digitspeedviewlib:1.0.3'
 
     implementation 'com.esri.arcgisruntime:arcgis-android:100.10.0'
+
+    implementation 'com.google.ar:core:1.23.0'
+    implementation 'com.gorisse.thomas.sceneform:sceneform:1.18.9'
+    implementation 'androidx.fragment:fragment:1.3.2'
+
+    implementation "com.microsoft.azure.spatialanchors:spatialanchors_jni:[2.9.0]"
+    implementation "com.microsoft.azure.spatialanchors:spatialanchors_java:[2.9.0]"
 
 }
