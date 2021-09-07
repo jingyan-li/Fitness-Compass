@@ -1,6 +1,6 @@
 # Compass app in Android
 
-:watch: ​Mobile GIS & LBS asn1 + asn2
+:watch: ​Course project for Mobile GIS & LBS 
 
 ## Description
 
@@ -8,7 +8,17 @@ A new start-up company asks you to develop a location-based fitness app based on
 The fitness app aims at encouraging the users to get out of their home and do a round trip
 running or walking near their home.
 
-### Assignment 1
+## Highlights
+
+The major functions implemented include:
+ - directing and giving instructions to the destination by a compass, 
+ - recording users' trajectories and uploading to ArcGIS Server once the trip is finished,
+ - calculating rewards of the trip according to speed, distance and other factors, and
+ - creating an AR scene where users can locate their rewards around them and storing rewards as spatial anchors. 
+
+## Functions
+
+### Compass navigation functions
 
 :point_right: The app should read a list of possible checkpoints from the file system
 
@@ -27,7 +37,7 @@ running or walking near their home.
 
 :point_right: ​Once the user completed the round trip (i.e., arrive the starting location), the app should again notify the user, provide a reward, and save the data to a CSV file. 
 
-### Assignment 2
+### Sharing trajectories
 
 :point_right: **Social sharing option:** users can share their latest record as a simple text. 
 
@@ -40,6 +50,16 @@ running or walking near their home.
 
 - Users can select from the spinner to show records of a certain user
 - Users can tap a trajectory to look through the attributes of the trajectory.
+
+### Locating rewards in AR Scene
+
+:point_right: **Locating rewards**: users can find the rewards they got in the past trips, and place the rewards in an AR scene. Finally the placed rewards are uploaded as Azure spatial anchors.
+
+:point_right: **Placing rewards**: users can re-establish all previously stored rewards (i.e., spatial anchors) in the AR scene.
+
+:point_right: **Cleaning rewards**: users can delete all located rewards and relocate them.
+
+
 
 ## UI
 
