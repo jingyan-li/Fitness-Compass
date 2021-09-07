@@ -39,6 +39,8 @@ The major functions implemented include:
 
 ### Sharing trajectories
 
+Users need an ArcGIS API key to upload their records to ArcGIS server.
+
 :point_right: **Social sharing option:** users can share their latest record as a simple text. 
 
  - Users can share by click the share button in the main activity.
@@ -53,27 +55,39 @@ The major functions implemented include:
 
 ### Locating rewards in AR Scene
 
+Users need to download Google Play Services for AR, and have an Azure account to upload spatial anchors.
+
 :point_right: **Locating rewards**: users can find the rewards they got in the past trips, and place the rewards in an AR scene. Finally the placed rewards are uploaded as Azure spatial anchors.
 
 :point_right: **Placing rewards**: users can re-establish all previously stored rewards (i.e., spatial anchors) in the AR scene.
 
 :point_right: **Cleaning rewards**: users can delete all located rewards and relocate them.
 
-
-
 ## UI
+
+### Compass navigation
 
 <img src="./example/screenshot.png" alt="main activity" style="zoom:60%;" />
 
 <img src="./example/screenshot2.png" alt="UI_Fullscreen" style="zoom:60%;" />
 
+### Sharing trajectories
+
 <img src="./example/upload_track.png" alt="upload track" style="zoom:60%;" />
 
 <img src="./example/track_review.png" alt="track review" style="zoom:60%;" />
+
+### Locating rewards in AR Scene
+
+<img src="./example/ar1.png" alt="track review" style="zoom:60%;" />
+
+
 
 ## Requirements
 
 Android Studio 3.4.1 
 
 API level min. 19
+
+Google Play Services for AR installed in the device
 
